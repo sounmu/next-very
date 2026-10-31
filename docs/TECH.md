@@ -10,7 +10,7 @@
 | 서버 | Next.js 16 App Router, `apps/server/app/api` 아래 Route Handlers만 쓴다. 요청 검증은 Zod |
 | DB | Supabase Postgres + Drizzle ORM + postgres.js. 연결 문자열은 `DATABASE_URL` 하나 |
 | 공통 코드 | `packages/core`(`@marginlog/core`): 타입, Zod 스키마, 단위 변환, 원가 계산, 비교, 주문 계산, 표시 형식, 시드 |
-| OCR | Gemini 비전 모델 + 응답 JSON 스키마, 키가 없으면 데모 추출 결과 |
+| OCR | Lablup(OpenAI 호환, DeepSeek-V4.1-Flash) 또는 Gemini 비전 모델 + 응답 JSON 스키마, 키가 없으면 데모 추출 결과 |
 | 테스트 | Vitest, `packages/core` |
 | 레포 | npm workspaces 모노레포 |
 
@@ -312,7 +312,7 @@ Vercel 함수의 요청 본문 한도는 4.5MB다. 앱이 사진을 긴 변 1600
 
 `apps/server/lib/ocr/extract.ts`가 사진 한 장을 받아 `ExtractResult`를 돌려준다.
 
-1. **실제 인식 조건.** 서버에 `GEMINI_API_KEY`가 있으면 Gemini를 부른다. 모델은 `GEMINI_MODEL`로 바꿀 수 있다. 키가 없거나, 호출이 실패하거나, 8초를 넘기면 데모 추출 결과를 돌려주고 `isDemo: true`로 저장한다. 앱 화면에는 데모 여부를 표시하지 않는다.
+1. **실제 인식 조건.** `OCR_PROVIDER`(`lablup` | `gemini`)로 공급자를 고른다. 비우면 `LABLUP_API_KEY`가 있을 때 Lablup, 없으면 Gemini다. Lablup은 `https://api.console.lablup.ai/v1/chat/completions`(OpenAI 호환)에 이미지와 `response_format: json_schema`를 보내고, 모델은 `LABLUP_MODEL`(기본 `DeepSeek-V4.1-Flash-B300`), 주소는 `LABLUP_BASE_URL`로 바꿀 수 있다. 추론(thinking)은 끈다(`chat_template_kwargs.thinking: false`). 켜면 15품목 영수증이 8초를 넘기고, 꺼도 인식 결과는 같다(1~3초). Gemini 모델은 `GEMINI_MODEL`로 바꿀 수 있다. 고른 공급자의 키가 없거나, 호출이 실패하거나, 8초를 넘기면 데모 추출 결과를 돌려주고 `isDemo: true`로 저장한다. 앱 화면에는 데모 여부를 표시하지 않는다.
 2. **좁은 JSON 스키마.** 모델은 `supplier, date, items[{ rawName, packSize|null, packUnit|null, quantity, unitPrice, amount }], total`만 읽는다. packUnit은 `g, kg, mL, L, ea` 중 하나이거나 null이다. 재료 연결, 단위 환산, 단가 계산은 서버 코드가 한다. 숫자는 인쇄된 그대로 옮기고 계산하거나 지어내지 말라고 프롬프트에 적는다.
 3. **서버 숫자 검사(`validate.ts`).** 다음이면 그 품목을 `confidence: 'low'`로 두고 `note`에 이유를 적는다: `quantity x unitPrice != amount`, packSize나 packUnit이 null, 포장 용량이 범위 밖(기본 단위로 1 미만 또는 50,000 초과), 품목 합 != total. 앱은 low 칸을 "확인 필요"로 표시하고 고치기 전에는 저장 버튼을 막는다.
 4. **별칭 연결(`aliases.ts`).** `ingredient_aliases`와 재료 이름으로 rawName을 먼저 맞춘다. 공백과 괄호를 지운 뒤 비교한다. 맞지 않으면 후보만 제안하고 자동 연결하지 않는다.
@@ -324,7 +324,7 @@ Vercel 함수의 요청 본문 한도는 4.5MB다. 앱이 사진을 긴 변 1600
 | 영역 | 지금 실제 | 데모 | 범위 밖 |
 |---|---|---|---|
 | DB | Supabase Postgres 저장과 조회 | | |
-| OCR | `GEMINI_API_KEY`가 있을 때 Gemini 인식 | 키가 없거나 실패하면 고정 추출 결과 | 다른 OCR 공급자 |
+| OCR | `LABLUP_API_KEY` 또는 `GEMINI_API_KEY`가 있을 때 모델 인식 | 키가 없거나 실패하면 고정 추출 결과 | 그 밖의 OCR 공급자 |
 | 원가 계산 | core 함수로 서버와 앱이 같이 계산 | | g과 mL 환산, 배송비 배분 |
 | 시장 참고 지수 | | 돼지고기 앞다리 4주 예시 | KAMIS 실조회 |
 | 공급처 상품과 가격 | | 시드 카탈로그(`is_demo`) | 공급처 연동 |
@@ -349,14 +349,14 @@ npm run typecheck                             # 워크스페이스 전체 타입
 
 ## 비밀값
 
-- `DATABASE_URL`과 `GEMINI_API_KEY`는 `apps/server/.env.local`에만 둔다. 이 파일은 git에 올리지 않는다.
+- `DATABASE_URL`, `LABLUP_API_KEY`, `GEMINI_API_KEY`는 `apps/server/.env.local`에만 둔다. 이 파일은 git에 올리지 않는다.
 - `.env.example`에는 변수 이름만 적는다.
 - 값을 로그, 응답, 문서, 커밋 메시지에 남기지 않는다. 스크립트에서 쓸 때는 `node --env-file=.env.local`이나 기존 npm 스크립트로 읽는다.
 - Vercel에는 프로젝트 환경변수로 넣는다.
 
 ## 배포와 시연 환경
 
-- 서버: Vercel에 `apps/server`를 올리고 환경변수에 `DATABASE_URL`과 `GEMINI_API_KEY`를 넣는다. URL은 앱의 `EXPO_PUBLIC_API_URL`에 넣는다.
+- 서버: Vercel에 `apps/server`를 올리고 환경변수에 `DATABASE_URL`과 OCR 키(`LABLUP_API_KEY` 또는 `GEMINI_API_KEY`)를 넣는다. URL은 앱의 `EXPO_PUBLIC_API_URL`에 넣는다.
 - 예비: 노트북에서 `next build` 뒤 `next start -p 8787`, `cloudflared tunnel --url http://localhost:8787`로 받은 HTTPS 주소를 쓴다. DB는 같은 Supabase다.
 - 앱: `npx expo start --tunnel`로 발표자 휴대폰에서 연다. 휴대폰 핫스팟을 예비 네트워크로 둔다.
 - 시연마다 `/api/demo/reset`으로 초기화한다.

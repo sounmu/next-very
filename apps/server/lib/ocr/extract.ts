@@ -6,6 +6,9 @@ import { z } from "zod";
 const TIMEOUT_MS = 8000;
 /** Alias used by the @google/genai 2.32 README examples; override with GEMINI_MODEL. */
 const DEFAULT_GEMINI_MODEL = "gemini-flash-latest";
+/** Lablup's OpenAI-compatible endpoint; override with LABLUP_BASE_URL and LABLUP_MODEL. */
+const DEFAULT_LABLUP_BASE_URL = "https://api.console.lablup.ai/v1";
+const DEFAULT_LABLUP_MODEL = "DeepSeek-V4.1-Flash-B300";
 
 const PROMPT = [
   "This photo is a Korean supplier invoice or receipt (거래명세서, 영수증, 주문내역). Read it and return JSON only.",
@@ -45,6 +48,34 @@ const responseSchema: Schema = {
   },
   required: ["supplier", "date", "items", "total"],
   propertyOrdering: ["supplier", "date", "items", "total"],
+};
+
+/** The same shape as responseSchema, in the JSON Schema form OpenAI-compatible servers take. */
+const jsonSchema = {
+  type: "object",
+  properties: {
+    supplier: { type: "string" },
+    date: { type: "string", description: "YYYY-MM-DD" },
+    items: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          rawName: { type: "string" },
+          packSize: { type: ["number", "null"] },
+          packUnit: { enum: [...UNIT_VALUES, null] },
+          quantity: { type: "number" },
+          unitPrice: { type: "integer" },
+          amount: { type: "integer" },
+        },
+        required: ["rawName", "packSize", "packUnit", "quantity", "unitPrice", "amount"],
+        additionalProperties: false,
+      },
+    },
+    total: { type: "integer" },
+  },
+  required: ["supplier", "date", "items", "total"],
+  additionalProperties: false,
 };
 
 const ModelOutputSchema = z.object({
@@ -87,9 +118,30 @@ async function normalizeImage(image: Buffer): Promise<Buffer> {
     .toBuffer();
 }
 
-async function extractWithGemini(image: Buffer, apiKey: string): Promise<Extraction> {
-  const jpeg = await normalizeImage(image);
-  const ai = new GoogleGenAI({ apiKey });
+type ModelOutput = z.infer<typeof ModelOutputSchema>;
+
+function toExtraction(out: ModelOutput): Extraction {
+  return {
+    isDemo: false,
+    result: {
+      supplier: out.supplier.trim(),
+      date: out.date.trim(),
+      items: out.items.map((i) => ({
+        rawName: i.rawName.trim(),
+        packSize: i.packSize,
+        packUnit: toUnit(i.packUnit),
+        quantity: i.quantity,
+        unitPrice: won(i.unitPrice),
+        amount: won(i.amount),
+        confidence: "high",
+      })),
+      total: won(out.total),
+    },
+  };
+}
+
+/** Runs `call` with an abort signal that fires after TIMEOUT_MS. */
+async function withTimeout<T>(call: (signal: AbortSignal) => Promise<T>): Promise<T> {
   const controller = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
@@ -98,62 +150,93 @@ async function extractWithGemini(image: Buffer, apiKey: string): Promise<Extract
       reject(new Error(`OCR timed out after ${TIMEOUT_MS}ms`));
     }, TIMEOUT_MS);
   });
-
   try {
-    const response = await Promise.race([
-      ai.models.generateContent({
-        model: process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL,
-        contents: [
-          {
-            role: "user",
-            parts: [{ inlineData: { mimeType: "image/jpeg", data: jpeg.toString("base64") } }, { text: PROMPT }],
-          },
-        ],
-        config: {
-          responseMimeType: "application/json",
-          responseSchema,
-          temperature: 0,
-          abortSignal: controller.signal,
-        },
-      }),
-      timeout,
-    ]);
-    const text = response.text;
-    if (!text) throw new Error("Gemini returned no text");
-    const out = ModelOutputSchema.parse(JSON.parse(text));
-    return {
-      isDemo: false,
-      result: {
-        supplier: out.supplier.trim(),
-        date: out.date.trim(),
-        items: out.items.map((i) => ({
-          rawName: i.rawName.trim(),
-          packSize: i.packSize,
-          packUnit: toUnit(i.packUnit),
-          quantity: i.quantity,
-          unitPrice: won(i.unitPrice),
-          amount: won(i.amount),
-          confidence: "high",
-        })),
-        total: won(out.total),
-      },
-    };
+    return await Promise.race([call(controller.signal), timeout]);
   } finally {
     clearTimeout(timer);
   }
 }
 
+async function extractWithGemini(jpeg: Buffer, apiKey: string): Promise<ModelOutput> {
+  const ai = new GoogleGenAI({ apiKey });
+  const response = await withTimeout((abortSignal) =>
+    ai.models.generateContent({
+      model: process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL,
+      contents: [
+        {
+          role: "user",
+          parts: [{ inlineData: { mimeType: "image/jpeg", data: jpeg.toString("base64") } }, { text: PROMPT }],
+        },
+      ],
+      config: { responseMimeType: "application/json", responseSchema, temperature: 0, abortSignal },
+    }),
+  );
+  const text = response.text;
+  if (!text) throw new Error("Gemini returned no text");
+  return ModelOutputSchema.parse(JSON.parse(text));
+}
+
+const ChatResponseSchema = z.object({
+  choices: z.array(z.object({ message: z.object({ content: z.string().nullable() }) })).min(1),
+});
+
+async function extractWithLablup(jpeg: Buffer, apiKey: string): Promise<ModelOutput> {
+  const baseUrl = (process.env.LABLUP_BASE_URL || DEFAULT_LABLUP_BASE_URL).replace(/\/+$/, "");
+  const body = await withTimeout(async (signal) => {
+    const res = await fetch(`${baseUrl}/chat/completions`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: process.env.LABLUP_MODEL || DEFAULT_LABLUP_MODEL,
+        temperature: 0,
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "image_url", image_url: { url: `data:image/jpeg;base64,${jpeg.toString("base64")}` } },
+              { type: "text", text: PROMPT },
+            ],
+          },
+        ],
+        response_format: { type: "json_schema", json_schema: { name: "invoice", strict: true, schema: jsonSchema } },
+        // DeepSeek reasons before answering by default, which pushes a 15-row receipt past
+        // TIMEOUT_MS (~8s). Reading printed values needs no reasoning: off, it takes 1-3s.
+        chat_template_kwargs: { thinking: false },
+      }),
+      signal,
+    });
+    if (!res.ok) throw new Error(`Lablup returned ${res.status}: ${(await res.text()).slice(0, 200)}`);
+    return res.json();
+  });
+  const text = ChatResponseSchema.parse(body).choices[0].message.content;
+  if (!text) throw new Error("Lablup returned no text");
+  return ModelOutputSchema.parse(JSON.parse(text));
+}
+
+type Provider = "lablup" | "gemini";
+
+/** OCR_PROVIDER picks the model; without it, Lablup when its key is set, else Gemini. */
+function pickProvider(): { provider: Provider; apiKey: string } {
+  const choice = process.env.OCR_PROVIDER || (process.env.LABLUP_API_KEY ? "lablup" : "gemini");
+  if (choice !== "lablup" && choice !== "gemini") throw new Error(`Unknown OCR_PROVIDER: ${choice}`);
+  const keyName = choice === "lablup" ? "LABLUP_API_KEY" : "GEMINI_API_KEY";
+  const apiKey = process.env[keyName];
+  if (!apiKey) throw new Error(`${keyName} is not set`);
+  return { provider: choice, apiKey };
+}
+
 /**
  * Reads an invoice photo. The model only reads printed values; ingredient
  * mapping happens in aliases.ts. Falls back to the store preset's demo invoice
- * extraction when the key is missing, the call fails or it takes over 8 seconds, unless
- * DEMO_FALLBACK=0.
+ * extraction when the provider's key is missing, the call fails or it takes over
+ * 8 seconds, unless DEMO_FALLBACK=0.
  */
 export async function extractInvoice(image: Buffer, mime: string, preset: Preset): Promise<Extraction> {
   try {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) throw new Error("GEMINI_API_KEY is not set");
-    return await extractWithGemini(image, apiKey);
+    const { provider, apiKey } = pickProvider();
+    const jpeg = await normalizeImage(image);
+    const out = provider === "lablup" ? await extractWithLablup(jpeg, apiKey) : await extractWithGemini(jpeg, apiKey);
+    return toExtraction(out);
   } catch (err) {
     if (process.env.DEMO_FALLBACK === "0") throw err;
     console.warn(`[ocr] using demo extract for ${mime} upload:`, err instanceof Error ? err.message : err);
