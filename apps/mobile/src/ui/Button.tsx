@@ -5,7 +5,7 @@ import { colors, control, lineWidth, opacity, radius, space, typography } from '
 export type ButtonProps = {
   label: string;
   onPress?: () => void;
-  /** primary: black pill. secondary: white with a border. */
+  /** primary: black pill. secondary: white pill with a border. */
   variant?: 'primary' | 'secondary';
   disabled?: boolean;
   /** Shows a spinner in place of the label and blocks presses. */
@@ -50,7 +50,6 @@ const styles = StyleSheet.create({
   primaryPressed: { backgroundColor: colors.actionPressed },
   secondary: {
     height: control.secondaryButtonHeight,
-    borderRadius: radius.md,
     backgroundColor: colors.surface,
     borderWidth: lineWidth,
     borderColor: colors.line,

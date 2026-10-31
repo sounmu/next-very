@@ -127,7 +127,7 @@ Pretendard를 우선하고, 없으면 Noto Sans KR → 시스템 sans-serif를 �
 | 작은 요약 카드 | radius 20 |
 | 입력창 | radius 16 |
 | 주요 버튼 | radius 999, 높이 52 |
-| 보조 버튼 | radius 16, 높이 48 |
+| 보조 버튼 | radius 999(주요 버튼과 같음), 높이 48 |
 | 필터 칩 | radius 999, 시각 높이 36, 터치 44 |
 | 시트 | 상단 radius 28 |
 | 상품 이미지 | radius 16, 64 × 64 기본 |
