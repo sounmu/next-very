@@ -1,365 +1,429 @@
-import type { Ingredient, Menu } from '@marginlog/core';
-import { MenuUpsertSchema } from '@marginlog/core/src/api/menu';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState, type ReactNode } from 'react';
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type StyleProp, type TextInputProps, type ViewStyle } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Path } from 'react-native-svg';
+import { formatUnitPrice, toBase, unitLabel, type BaseUnit, type Menu, type Unit } from '@marginlog/core';
+import type { IngredientListItem } from '@marginlog/core/src/api/ingredients';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useMemo, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ApiError } from '@/api';
-import { useIngredients, useMenuDetail, useSaveMenu } from '@/api/menu';
+import { useMenu, useRecipeIngredients, useSaveMenu } from '@/api/menus';
 import {
   Button,
   Card,
+  Chip,
+  Header,
+  ListRow,
+  MoneyField,
+  Notice,
+  Screen,
+  SegmentedControl,
+  Sheet,
+  StateView,
+  TextField,
   colors,
   control,
-  Header,
-  iconSize,
-  iconStroke,
+  formatWon,
   lineWidth,
-  Notice,
   opacity,
   radius,
-  Row,
-  Screen,
-  shadow,
   space,
   typography,
 } from '@/ui';
 
-type RecipeRow = { key: number; ingredientId: string | null; grams: string };
-type FormInitial = { name: string; price: string; rows: RecipeRow[] };
+const UNITS_BY_BASE: Record<BaseUnit, readonly Unit[]> = { g: ['g', 'kg'], mL: ['mL', 'L'], ea: ['ea'] };
+const SERVING_PRESETS = ['1인분', '1잔', '1개'] as const;
+type ServingChoice = (typeof SERVING_PRESETS)[number] | 'custom';
+const SERVING_OPTIONS = [...SERVING_PRESETS.map((value) => ({ value, label: value })), { value: 'custom' as const, label: '직접' }];
 
-const EMPTY_FORM: FormInitial = { name: '', price: '', rows: [{ key: 0, ingredientId: null, grams: '' }] };
+type DraftLine = { key: string; ingredientId: string | null; amountText: string; unit: Unit | null };
 
-function errorMessage(error: unknown): string {
-  return error instanceof ApiError ? error.message : '불러오지 못했어요';
+let keySeq = 0;
+const nextKey = () => `line-${++keySeq}`;
+const emptyLine = (): DraftLine => ({ key: nextKey(), ingredientId: null, amountText: '', unit: null });
+
+function parseAmount(text: string): number | null {
+  const value = Number(text.replace(',', '.'));
+  return text.trim() !== '' && Number.isFinite(value) && value > 0 ? value : null;
 }
 
-function isNotFound(error: unknown): boolean {
-  return error instanceof ApiError && error.status === 404;
-}
+type LineState =
+  | { kind: 'empty' }
+  | { kind: 'incomplete'; reason: string }
+  | { kind: 'unit'; base: BaseUnit }
+  | { kind: 'no-price'; ingredientId: string; amount: number; unit: Unit }
+  | { kind: 'priced'; ingredientId: string; amount: number; unit: Unit; cost: number };
 
-function digitsOnly(text: string): string {
-  return text.replace(/\D/g, '');
-}
-
-/** Display only: "10000" -> "10,000". The state keeps the bare digits. */
-function withCommas(digits: string): string {
-  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-}
-
-function fullName(ingredient: Ingredient): string {
-  return ingredient.spec ? `${ingredient.name} · ${ingredient.spec}` : ingredient.name;
-}
-
-function fromMenu(menu: Menu): FormInitial {
+function evaluate(line: DraftLine, ingredient: IngredientListItem | undefined): LineState {
+  const amount = parseAmount(line.amountText);
+  if (line.ingredientId === null) {
+    return line.amountText.trim() === '' ? { kind: 'empty' } : { kind: 'incomplete', reason: '재료를 선택해 주세요' };
+  }
+  if (!ingredient) return { kind: 'incomplete', reason: '재료 정보를 불러오고 있어요' };
+  if (line.unit === null || !UNITS_BY_BASE[ingredient.baseUnit].includes(line.unit)) {
+    return { kind: 'unit', base: ingredient.baseUnit };
+  }
+  if (amount === null) return { kind: 'incomplete', reason: `${ingredient.name} 사용량을 입력해 주세요` };
+  const baseQty = toBase(amount, line.unit, ingredient.baseUnit);
+  if (baseQty === null) return { kind: 'unit', base: ingredient.baseUnit };
+  if (ingredient.latest === null) return { kind: 'no-price', ingredientId: ingredient.id, amount, unit: line.unit };
   return {
-    name: menu.name,
-    price: String(menu.price),
-    rows: menu.recipe.map((line, key) => ({ key, ingredientId: line.ingredientId, grams: String(line.grams) })),
+    kind: 'priced',
+    ingredientId: ingredient.id,
+    amount,
+    unit: line.unit,
+    cost: Math.round(baseQty * ingredient.latest.unitPricePerBase),
   };
 }
 
-export default function RecipeEditScreen() {
-  const { menuId } = useLocalSearchParams<{ menuId: string }>();
-  const router = useRouter();
-  const isNew = menuId === 'new';
-  const ingredients = useIngredients();
-  const detail = useMenuDetail(isNew ? undefined : menuId);
-
-  let body;
-  if (ingredients.isPending || (!isNew && detail.isPending)) {
-    body = (
-      <View style={styles.center}>
-        <ActivityIndicator color={colors.primary} />
-      </View>
-    );
-  } else if (ingredients.isError) {
-    body = (
-      <Card>
-        <Text style={typography.bodyStrong}>재료 목록을 불러오지 못했어요</Text>
-        <Notice style={styles.detail}>{errorMessage(ingredients.error)}</Notice>
-        <Button variant="secondary" label="다시 시도" onPress={() => void ingredients.refetch()} style={styles.retry} />
-      </Card>
-    );
-  } else if (!isNew && detail.isError) {
-    body = isNotFound(detail.error) ? (
-      <Card>
-        <Text style={typography.bodyStrong}>메뉴를 찾을 수 없어요</Text>
-        <Notice style={styles.detail}>삭제되었거나 주소가 잘못되었어요.</Notice>
-        <Button variant="secondary" label="메뉴 목록 보기" onPress={() => router.navigate('/')} style={styles.retry} />
-      </Card>
-    ) : (
-      <Card>
-        <Text style={typography.bodyStrong}>메뉴를 불러오지 못했어요</Text>
-        <Notice style={styles.detail}>{errorMessage(detail.error)}</Notice>
-        <Button variant="secondary" label="다시 시도" onPress={() => void detail.refetch()} style={styles.retry} />
-      </Card>
-    );
-  } else {
-    const initial = isNew ? EMPTY_FORM : detail.data ? fromMenu(detail.data.menu) : null;
-    if (initial) {
-      return (
-        <RecipeForm
-          key={menuId}
-          menuId={menuId}
-          initial={initial}
-          ingredients={ingredients.data.ingredients}
-          pricedIds={new Set(ingredients.data.pricedIds)}
-        />
-      );
-    }
-    body = (
-      <View style={styles.center}>
-        <ActivityIndicator color={colors.primary} />
-      </View>
-    );
-  }
+function IngredientPicker({
+  visible,
+  onClose,
+  onPick,
+  usedIds,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  onPick: (ingredient: IngredientListItem) => void;
+  usedIds: ReadonlySet<string>;
+}) {
+  const query = useRecipeIngredients();
+  const [search, setSearch] = useState('');
+  const term = search.trim();
+  const list = (query.data?.ingredients ?? []).filter(
+    (item) => term === '' || item.name.includes(term) || item.aliases.some((alias) => alias.includes(term)),
+  );
 
   return (
-    <Screen>
-      <Header backLabel="메뉴 목록" title="메뉴·레시피 등록" />
-      {body}
-    </Screen>
+    <Sheet visible={visible} title="재료 선택" onClose={onClose}>
+      <TextField label="재료 검색" value={search} onChangeText={setSearch} placeholder="예: 우유" />
+      {query.isPending ? (
+        <StateView kind="loading" title="재료를 불러오고 있어요" />
+      ) : query.isError ? (
+        <StateView
+          kind="error"
+          title="재료를 불러오지 못했어요"
+          message={query.error.message}
+          actionLabel="다시 시도"
+          onAction={() => void query.refetch()}
+        />
+      ) : query.data.ingredients.length === 0 ? (
+        <StateView
+          kind="empty"
+          title="등록된 재료가 없어요"
+          message="구매 기록을 등록하면 재료와 단가가 생겨요"
+          actionLabel="식재료 관리로"
+          onAction={() => {
+            onClose();
+            router.push('/ingredients');
+          }}
+        />
+      ) : list.length === 0 ? (
+        <Notice>“{term}”에 맞는 재료가 없어요</Notice>
+      ) : (
+        <View>
+          {list.map((item, index) => {
+            const used = usedIds.has(item.id);
+            return (
+              <ListRow
+                key={item.id}
+                title={item.name}
+                subtitle={[item.spec, `기본 단위 ${unitLabel(item.baseUnit)}`, used ? '이미 추가함' : null].filter(Boolean).join(' · ')}
+                value={
+                  item.latest === null ? (
+                    <Chip label="단가 없음" tone="warning" />
+                  ) : (
+                    <Text style={typography.secondary}>{formatUnitPrice(item.latest.unitPricePerBase, item.baseUnit)}</Text>
+                  )
+                }
+                onPress={used ? undefined : () => onPick(item)}
+                divider={index < list.length - 1}
+              />
+            );
+          })}
+        </View>
+      )}
+    </Sheet>
   );
 }
 
-type RecipeFormProps = {
-  menuId: string;
-  initial: FormInitial;
-  ingredients: Ingredient[];
-  pricedIds: ReadonlySet<string>;
-};
+function LineEditor({
+  index,
+  line,
+  ingredient,
+  fallbackName,
+  state,
+  onPickIngredient,
+  onChange,
+  onRemove,
+}: {
+  index: number;
+  line: DraftLine;
+  ingredient: IngredientListItem | undefined;
+  fallbackName: string | undefined;
+  state: LineState;
+  onPickIngredient: () => void;
+  onChange: (patch: Partial<DraftLine>) => void;
+  onRemove: () => void;
+}) {
+  const name = ingredient?.name ?? fallbackName;
+  const units = ingredient ? UNITS_BY_BASE[ingredient.baseUnit] : [];
+  return (
+    <Card>
+      <View style={styles.lineHead}>
+        <Text style={typography.cardTitle}>재료 {index + 1}</Text>
+        <Pressable accessibilityRole="button" accessibilityLabel={`재료 ${index + 1} 삭제`} onPress={onRemove} hitSlop={space.s2} style={({ pressed }) => [styles.textButton, pressed && styles.pressed]}>
+          <Text style={styles.removeLabel}>삭제</Text>
+        </Pressable>
+      </View>
+      <View style={styles.lineBody}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={name ? `재료 ${name}, 바꾸기` : '재료 선택'}
+          onPress={onPickIngredient}
+          style={({ pressed }) => [styles.picker, pressed && styles.pressed]}
+        >
+          <Text style={[typography.body, !name && styles.placeholder]} numberOfLines={1}>
+            {name ?? '재료 선택'}
+          </Text>
+          {ingredient?.latest === null ? <Chip label="단가 없음" tone="warning" /> : null}
+        </Pressable>
+        <TextField
+          label="사용량"
+          value={line.amountText}
+          onChangeText={(amountText) => onChange({ amountText })}
+          keyboardType="decimal-pad"
+          placeholder="0"
+          align="right"
+          suffix={line.unit ? unitLabel(line.unit) : undefined}
+        />
+        {units.length > 0 ? (
+          <SegmentedControl
+            options={units.map((value) => ({ value, label: unitLabel(value) }))}
+            value={line.unit ?? ('' as Unit)}
+            onChange={(unit) => onChange({ unit })}
+          />
+        ) : null}
+        <View style={styles.lineCost}>
+          <Text style={typography.secondary}>재료비</Text>
+          {state.kind === 'priced' ? (
+            <Text style={typography.rowAmount}>{formatWon(state.cost)}</Text>
+          ) : state.kind === 'no-price' ? (
+            <Text style={styles.warn}>단가 등록 필요</Text>
+          ) : state.kind === 'unit' ? (
+            <Text style={styles.warn}>단위 확인 필요 · 기본 단위 {unitLabel(state.base)}</Text>
+          ) : (
+            <Text style={styles.muted}>-</Text>
+          )}
+        </View>
+        {ingredient?.latest ? (
+          <Notice>최근 구매 단가 {formatUnitPrice(ingredient.latest.unitPricePerBase, ingredient.baseUnit)}</Notice>
+        ) : null}
+      </View>
+    </Card>
+  );
+}
 
-function RecipeForm({ menuId, initial, ingredients, pricedIds }: RecipeFormProps) {
-  const router = useRouter();
-  const insets = useSafeAreaInsets();
-  const save = useSaveMenu();
-  const [name, setName] = useState(initial.name);
-  const [price, setPrice] = useState(initial.price);
-  const [rows, setRows] = useState(initial.rows);
-  const [pickingKey, setPickingKey] = useState<number | null>(null);
+function RecipeForm({ menuId, initial, knownNames }: { menuId: string; initial: Menu | null; knownNames: ReadonlyMap<string, string> }) {
+  const ingredientsQuery = useRecipeIngredients();
+  const save = useSaveMenu(menuId);
+  const isNew = initial === null;
 
-  const ingredientById = new Map(ingredients.map((i) => [i.id, i]));
-  const parsed = MenuUpsertSchema.safeParse({
-    name,
-    price: Number(price),
-    recipe: rows.map((row) => ({ ingredientId: row.ingredientId ?? '', grams: Number(row.grams) })),
-  });
+  const initialServing = initial?.servingLabel ?? '1인분';
+  const presetServing = (SERVING_PRESETS as readonly string[]).includes(initialServing);
+  const [name, setName] = useState(initial?.name ?? '');
+  const [price, setPrice] = useState<number | null>(initial?.price ?? null);
+  const [servingChoice, setServingChoice] = useState<ServingChoice>(presetServing ? (initialServing as ServingChoice) : 'custom');
+  const [customServing, setCustomServing] = useState(presetServing ? '' : initialServing);
+  const [lines, setLines] = useState<DraftLine[]>(() =>
+    initial && initial.recipe.length > 0
+      ? initial.recipe.map((line) => ({ key: nextKey(), ingredientId: line.ingredientId, amountText: String(line.amount), unit: line.unit }))
+      : [emptyLine()],
+  );
+  const [pickingKey, setPickingKey] = useState<string | null>(null);
 
-  const updateRow = (key: number, patch: Partial<RecipeRow>) =>
-    setRows((current) => current.map((row) => (row.key === key ? { ...row, ...patch } : row)));
-  const removeRow = (key: number) => setRows((current) => current.filter((row) => row.key !== key));
-  const addRow = () =>
-    setRows((current) => [
-      ...current,
-      { key: current.reduce((max, row) => Math.max(max, row.key), -1) + 1, ingredientId: null, grams: '' },
-    ]);
-  const closePicker = () => setPickingKey(null);
-  const pick = (ingredientId: string) => {
-    if (pickingKey !== null) updateRow(pickingKey, { ingredientId });
-    closePicker();
+  const byId = useMemo(
+    () => new Map((ingredientsQuery.data?.ingredients ?? []).map((item) => [item.id, item] as const)),
+    [ingredientsQuery.data],
+  );
+  const servingLabel = servingChoice === 'custom' ? customServing.trim() : servingChoice;
+  const states = lines.map((line) => evaluate(line, line.ingredientId ? byId.get(line.ingredientId) : undefined));
+  const filled = states.filter((state) => state.kind !== 'empty');
+  const valid = filled.filter((state): state is Extract<LineState, { kind: 'priced' | 'no-price' }> => state.kind === 'priced' || state.kind === 'no-price');
+  const partialTotal = valid.reduce((sum, state) => sum + (state.kind === 'priced' ? state.cost : 0), 0);
+  const complete = valid.length > 0 && valid.length === filled.length && valid.every((state) => state.kind === 'priced');
+  const usedIds = new Set(lines.flatMap((line) => (line.ingredientId ? [line.ingredientId] : [])));
+
+  const firstBlocked = filled.find((state) => state.kind === 'incomplete' || state.kind === 'unit');
+  const reason =
+    name.trim() === ''
+      ? '메뉴명을 입력해 주세요'
+      : price === null || price <= 0
+        ? '판매가를 입력해 주세요'
+        : servingLabel === ''
+          ? '제공 단위를 입력해 주세요'
+          : valid.length === 0
+            ? '재료를 하나 이상 추가해 주세요'
+            : firstBlocked?.kind === 'incomplete'
+              ? firstBlocked.reason
+              : firstBlocked?.kind === 'unit'
+                ? '단위 확인이 필요한 재료가 있어요'
+                : null;
+
+  const updateLine = (key: string, patch: Partial<DraftLine>) =>
+    setLines((current) => current.map((line) => (line.key === key ? { ...line, ...patch } : line)));
+
+  const onSave = () => {
+    if (reason !== null || price === null) return;
+    save.mutate(
+      {
+        name: name.trim(),
+        price,
+        servingLabel,
+        recipe: valid.map(({ ingredientId, amount, unit }) => ({ ingredientId, amount, unit })),
+      },
+      { onSuccess: ({ menu }) => router.replace({ pathname: '/menus/[id]', params: { id: menu.id } }) },
+    );
   };
-  const submit = () => {
-    if (!parsed.success) return;
-    save.mutate({ menuId, body: parsed.data }, { onSuccess: () => router.navigate('/') });
-  };
+
+  const totalLabel = `${servingLabel || '메뉴당'} 식재료비`;
 
   return (
     <Screen
       actions={
         <>
-          {save.isError ? <Notice style={styles.saveError}>{`저장하지 못했어요 · ${errorMessage(save.error)}`}</Notice> : null}
-          <Button label="저장하고 메뉴 목록 보기" onPress={submit} disabled={!parsed.success} loading={save.isPending} />
+          <View style={styles.totalRow}>
+            <Text style={[typography.bodyStrong, styles.totalLabel]}>{totalLabel}</Text>
+            {complete ? (
+              <Text style={typography.amountLg}>{formatWon(partialTotal)}</Text>
+            ) : valid.length > 0 ? (
+              <View style={styles.totalSide}>
+                <Text style={styles.warn}>
+                  {filled.some((state) => state.kind === 'unit') ? '단위 확인 필요' : '일부 재료 단가 미등록'}
+                </Text>
+                <Text style={typography.caption}>부분 합계 {formatWon(partialTotal)}</Text>
+              </View>
+            ) : (
+              <Text style={styles.muted}>-</Text>
+            )}
+          </View>
+          {save.isError ? (
+            <Text style={styles.error}>
+              저장하지 못했어요 · {save.error instanceof ApiError ? save.error.message : '다시 시도해 주세요'}
+            </Text>
+          ) : reason ? (
+            <Text style={styles.reason}>{reason}</Text>
+          ) : null}
+          <Button label="레시피 저장" onPress={onSave} disabled={reason !== null} loading={save.isPending} />
         </>
       }
     >
-      <Header
-        backLabel="메뉴 목록"
-        title="메뉴·레시피 등록"
-        subtitle={menuId === 'new' ? undefined : `${initial.name} 수정`}
-      />
-
-      <Text accessibilityRole="header" style={typography.sectionTitle}>기본 정보</Text>
+      <Header backLabel="메뉴 원가" title={isNew ? '레시피 등록' : '레시피 수정'} />
       <Card>
         <View style={styles.fields}>
-          <Field label="메뉴명">
-            <TextBox value={name} onChangeText={setName} placeholder="예: 제육덮밥" autoCorrect={false} />
-          </Field>
-          <Field label="판매가">
-            <TextBox
-              value={withCommas(price)}
-              onChangeText={(text) => setPrice(digitsOnly(text))}
-              keyboardType="number-pad"
-              placeholder={withCommas('10000')}
-              suffix="원"
-              alignRight
-            />
-          </Field>
-          <Field label="기준 인분">
-            <View style={[styles.input, styles.inputReadonly]}>
-              <Text style={styles.readonlyText}>1인분</Text>
-            </View>
-          </Field>
-        </View>
-      </Card>
-
-      <Text accessibilityRole="header" style={[typography.sectionTitle, styles.sectionGap]}>재료별 사용량 · 구매 중량 기준</Text>
-      <Card>
-        {rows.map((row) => {
-          const ingredient = row.ingredientId === null ? undefined : ingredientById.get(row.ingredientId);
-          const unpriced = row.ingredientId !== null && !pricedIds.has(row.ingredientId);
-          return (
-            <View key={row.key} style={styles.recipeRow}>
-              <View style={styles.recipeLine}>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => setPickingKey(row.key)}
-                  style={({ pressed }) => [styles.input, styles.picker, unpriced && styles.inputWarn, pressed && styles.pressed]}
-                >
-                  <Text numberOfLines={1} style={ingredient ? styles.inputText : styles.placeholder}>
-                    {ingredient ? ingredient.name : '재료 선택'}
-                  </Text>
-                  <ChevronDownIcon />
-                </Pressable>
-                <TextBox
-                  boxStyle={styles.grams}
-                  value={row.grams}
-                  onChangeText={(text) => updateRow(row.key, { grams: digitsOnly(text) })}
-                  keyboardType="number-pad"
-                  placeholder="0"
-                  suffix="g"
-                  alignRight
-                />
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="재료 삭제"
-                  onPress={() => removeRow(row.key)}
-                  hitSlop={space.s1}
-                  style={({ pressed }) => [styles.remove, pressed && styles.pressed]}
-                >
-                  <CloseIcon />
-                </Pressable>
-              </View>
-              {unpriced ? <Text style={styles.unpriced}>매입가 미등록</Text> : null}
-            </View>
-          );
-        })}
-        {rows.length === 0 ? <Notice style={styles.emptyRows}>재료를 하나 이상 추가해 주세요.</Notice> : null}
-        {ingredients.length === 0 ? (
-          <Notice style={styles.emptyRows}>등록된 재료가 없어요. 메뉴 목록 제목을 길게 눌러 시연 데이터로 초기화해 주세요.</Notice>
-        ) : null}
-        <Button
-          variant="secondary"
-          label="재료 추가"
-          onPress={addRow}
-          disabled={ingredients.length === 0 || rows.length >= ingredients.length}
-        />
-      </Card>
-
-      <Notice>처음 한 번 사용량을 확인해 주세요. 이후에는 명세서로 구매가격을 갱신합니다.</Notice>
-      <Notice align="center">미등록 재료가 있으면 전체 원가로 표시하지 않아요.</Notice>
-
-      <Modal visible={pickingKey !== null} transparent animationType="slide" onRequestClose={closePicker}>
-        <View style={styles.modalRoot}>
-          <Pressable accessibilityRole="button" accessibilityLabel="닫기" style={styles.scrim} onPress={closePicker} />
-          <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, space.s5) }]}>
-            <View style={styles.grabber} />
-            <Text accessibilityRole="header" style={typography.detailTitle}>재료 선택</Text>
-            <ScrollView style={styles.sheetList}>
-              {ingredients.map((ingredient, index) => {
-                const taken = rows.some((row) => row.key !== pickingKey && row.ingredientId === ingredient.id);
-                return (
-                  <Pressable
-                    key={ingredient.id}
-                    accessibilityRole="button"
-                    disabled={taken}
-                    onPress={() => pick(ingredient.id)}
-                    style={({ pressed }) => [pressed && styles.pressed, taken && styles.taken]}
-                  >
-                    <Row
-                      label={fullName(ingredient)}
-                      hint={pricedIds.has(ingredient.id) ? undefined : '매입가 미등록'}
-                      value={taken ? <Text style={typography.caption}>추가됨</Text> : undefined}
-                      divider={index < ingredients.length - 1}
-                    />
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
+          <TextField label="메뉴명" value={name} onChangeText={setName} placeholder="예: 카페라테" />
+          <MoneyField label="판매가" value={price} onChangeValue={setPrice} placeholder="0" />
+          <View style={styles.serving}>
+            <Text style={typography.secondary}>제공 단위</Text>
+            <SegmentedControl options={SERVING_OPTIONS} value={servingChoice} onChange={setServingChoice} />
+            {servingChoice === 'custom' ? (
+              <TextField label="제공 단위 직접 입력" value={customServing} onChangeText={setCustomServing} placeholder="예: 1접시" />
+            ) : null}
           </View>
         </View>
-      </Modal>
+      </Card>
+
+      <Text accessibilityRole="header" style={typography.sectionTitle}>
+        재료
+      </Text>
+      {ingredientsQuery.isError ? (
+        <Notice style={styles.errorNotice}>재료 단가를 불러오지 못해 재료비를 계산할 수 없어요.</Notice>
+      ) : null}
+      {lines.map((line, index) => (
+        <LineEditor
+          key={line.key}
+          index={index}
+          line={line}
+          ingredient={line.ingredientId ? byId.get(line.ingredientId) : undefined}
+          fallbackName={line.ingredientId ? knownNames.get(line.ingredientId) : undefined}
+          state={states[index] ?? { kind: 'empty' }}
+          onPickIngredient={() => setPickingKey(line.key)}
+          onChange={(patch) => updateLine(line.key, patch)}
+          onRemove={() => setLines((current) => current.filter((item) => item.key !== line.key))}
+        />
+      ))}
+      <Button label="재료 추가" variant="secondary" onPress={() => setLines((current) => [...current, emptyLine()])} />
+      <Notice>최근 확인된 구매 단가 기준 · 인건비·임대료 제외 · 배송비 제외</Notice>
+
+      <IngredientPicker
+        visible={pickingKey !== null}
+        onClose={() => setPickingKey(null)}
+        usedIds={usedIds}
+        onPick={(item) => {
+          if (pickingKey) {
+            const units = UNITS_BY_BASE[item.baseUnit];
+            setLines((current) =>
+              current.map((line) =>
+                line.key === pickingKey
+                  ? { ...line, ingredientId: item.id, unit: line.unit && units.includes(line.unit) ? line.unit : (units[0] ?? null) }
+                  : line,
+              ),
+            );
+          }
+          setPickingKey(null);
+        }}
+      />
     </Screen>
   );
 }
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <View style={styles.field}>
-      <Text style={typography.secondary}>{label}</Text>
-      {children}
-    </View>
-  );
-}
+export default function RecipeEditScreen() {
+  const { menuId = 'new' } = useLocalSearchParams<{ menuId: string }>();
+  const isNew = menuId === 'new';
+  const menuQuery = useMenu(isNew ? undefined : menuId);
 
-type TextBoxProps = Omit<TextInputProps, 'style' | 'placeholderTextColor'> & {
-  suffix?: string;
-  alignRight?: boolean;
-  boxStyle?: StyleProp<ViewStyle>;
-};
+  if (isNew) return <RecipeForm menuId="new" initial={null} knownNames={new Map()} />;
 
-/** DESIGN.md 8.3 field: subtle surface, 1px line border, 2px primary border while focused. */
-function TextBox({ suffix, alignRight = false, boxStyle, onFocus, onBlur, ...input }: TextBoxProps) {
-  const [focused, setFocused] = useState(false);
-  return (
-    <View style={[styles.input, boxStyle, focused && styles.inputFocused]}>
-      <TextInput
-        {...input}
-        style={[styles.inputText, alignRight && styles.alignRight]}
-        placeholderTextColor={colors.text3}
-        onFocus={(event) => {
-          setFocused(true);
-          onFocus?.(event);
-        }}
-        onBlur={(event) => {
-          setFocused(false);
-          onBlur?.(event);
-        }}
-      />
-      {suffix ? <Text style={styles.suffix}>{suffix}</Text> : null}
-    </View>
-  );
-}
+  if (menuQuery.isPending || menuQuery.isError) {
+    const notFound = menuQuery.error instanceof ApiError && menuQuery.error.status === 404;
+    return (
+      <Screen>
+        <Header backLabel="메뉴 원가" title="레시피 수정" />
+        {menuQuery.isPending ? (
+          <StateView kind="loading" title="레시피를 불러오고 있어요" />
+        ) : notFound ? (
+          <StateView kind="empty" title="메뉴를 찾을 수 없어요" actionLabel="새 메뉴 등록" onAction={() => router.replace({ pathname: '/recipe/[menuId]', params: { menuId: 'new' } })} />
+        ) : (
+          <StateView
+            kind="error"
+            title="레시피를 불러오지 못했어요"
+            message={menuQuery.error?.message}
+            actionLabel="다시 시도"
+            onAction={() => void menuQuery.refetch()}
+          />
+        )}
+      </Screen>
+    );
+  }
 
-function ChevronDownIcon() {
+  const { menu, ingredients } = menuQuery.data;
   return (
-    <Svg width={iconSize.md} height={iconSize.md} viewBox="0 0 24 24" fill="none">
-      <Path d="M6 9l6 6 6-6" stroke={colors.text2} strokeWidth={iconStroke} strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function CloseIcon() {
-  return (
-    <Svg width={iconSize.md} height={iconSize.md} viewBox="0 0 24 24" fill="none">
-      <Path d="M6 6l12 12M18 6L6 18" stroke={colors.text2} strokeWidth={iconStroke} strokeLinecap="round" />
-    </Svg>
+    <RecipeForm
+      key={menu.id}
+      menuId={menu.id}
+      initial={menu}
+      knownNames={new Map(ingredients.map((item) => [item.id, item.name] as const))}
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  center: { paddingVertical: space.s8, alignItems: 'center' },
-  pressed: { opacity: opacity.pressed },
-  detail: { marginTop: space.s1 },
-  retry: { marginTop: space.s4 },
-  /** Screen's s3 gap plus this margin makes the s7 section spacing. */
-  sectionGap: { marginTop: space.s7 - space.s3 },
   fields: { gap: space.s4 },
-  field: { gap: space.s2 },
-  input: {
-    height: control.inputHeight,
+  serving: { gap: space.s2 },
+  lineHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  lineBody: { gap: space.s3 },
+  textButton: { minHeight: control.iconButton, justifyContent: 'center' },
+  removeLabel: { ...typography.secondary, color: colors.loss },
+  picker: {
+    minHeight: control.inputHeight,
     borderRadius: radius.md,
     borderWidth: lineWidth,
     borderColor: colors.line,
@@ -367,46 +431,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.s4,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     gap: space.s2,
   },
-  /** 2px border; padding shrinks by the extra 1px so the text does not shift. */
-  inputFocused: { borderWidth: lineWidth * 2, borderColor: colors.primary, paddingHorizontal: space.s4 - lineWidth },
-  inputWarn: { borderColor: colors.warn },
-  /** outlineWidth 0: the wrapper draws the 2px focus border, so web's default input outline is dropped. */
-  inputText: { flex: 1, minWidth: 0, ...typography.body, color: colors.text, paddingVertical: 0, outlineStyle: 'solid', outlineWidth: 0 },
-  alignRight: { textAlign: 'right' },
-  placeholder: { flex: 1, ...typography.body, color: colors.text3 },
-  suffix: typography.secondary,
-  inputReadonly: { backgroundColor: colors.disabledBg },
-  readonlyText: { ...typography.body, color: colors.text2 },
-  recipeRow: { marginBottom: space.s3, gap: space.s1 },
-  recipeLine: { flexDirection: 'row', alignItems: 'center', gap: space.s2 },
-  /** 5:2 keeps "돼지고기 앞다리" on one line at 390 wide; grams uses tighter padding. */
-  picker: { flex: 5 },
-  grams: { flex: 2, paddingHorizontal: space.s3 },
-  remove: {
-    width: control.iconButton,
-    height: control.iconButton,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: -space.s2,
-  },
-  unpriced: { ...typography.caption, color: colors.warn },
-  emptyRows: { marginBottom: space.s3 },
-  saveError: { color: colors.loss },
-  modalRoot: { flex: 1, justifyContent: 'flex-end' },
-  scrim: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: colors.scrim },
-  sheet: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
-    padding: space.s5,
-    paddingTop: space.s3,
-    maxHeight: '70%',
-    gap: space.s3,
-    ...shadow.sheet,
-  },
-  grabber: { alignSelf: 'center', width: space.s10, height: space.s1, borderRadius: radius.full, backgroundColor: colors.line },
-  sheetList: { flexGrow: 0 },
-  taken: { opacity: opacity.disabled },
+  placeholder: { color: colors.text3 },
+  pressed: { opacity: opacity.pressed },
+  lineCost: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.s3 },
+  warn: { ...typography.secondary, color: colors.warn, fontWeight: '600' },
+  muted: { ...typography.secondary, color: colors.text3 },
+  totalRow: { flexDirection: 'row', alignItems: 'center', gap: space.s3 },
+  totalLabel: { flex: 1 },
+  totalSide: { alignItems: 'flex-end' },
+  reason: { ...typography.caption, color: colors.text2 },
+  error: { ...typography.caption, color: colors.loss },
+  errorNotice: { color: colors.loss },
 });
