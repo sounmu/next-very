@@ -17,7 +17,6 @@ import {
   control,
   iconSize,
   iconStroke,
-  opacity,
   radius,
   shadow,
   space,
@@ -47,19 +46,7 @@ export default function RecordsScreen() {
   return (
     <View style={styles.root}>
       <Screen contentStyle={styles.content}>
-        <Header
-          title="구매 기록"
-          right={
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => router.push('/purchases/new')}
-              hitSlop={space.s2}
-              style={({ pressed }) => [styles.textAction, pressed && styles.pressed]}
-            >
-              <Text style={styles.textActionLabel}>직접 입력</Text>
-            </Pressable>
-          }
-        />
+        <Header title="구매 기록" />
 
         <TextField label="검색" value={query} onChangeText={setQuery} placeholder="재료, 별칭, 구매처로 찾기" />
 
@@ -152,9 +139,6 @@ const styles = StyleSheet.create({
     ...shadow.fab,
   },
   fabPressed: { backgroundColor: colors.actionPressed },
-  textAction: { minHeight: control.iconButton, justifyContent: 'center' },
-  textActionLabel: { ...typography.secondary, color: colors.text, fontWeight: '600' },
-  pressed: { opacity: opacity.pressed },
   listCard: { paddingVertical: 0 },
   group: { gap: space.s2 },
 });
