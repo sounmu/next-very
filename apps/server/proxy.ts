@@ -4,7 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "content-type",
+  "Access-Control-Allow-Headers": "content-type, authorization",
   "Access-Control-Max-Age": "86400",
 };
 
