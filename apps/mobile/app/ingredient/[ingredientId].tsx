@@ -1,6 +1,6 @@
 import { currentAndPrevious, priceHistory, type Purchase, type Supplier } from '@marginlog/core';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 import Svg, { Circle, Line, Polyline } from 'react-native-svg';
 
@@ -29,11 +29,22 @@ const FALLBACK_TITLE = '재료 가격 추세';
 const FOOTER = '식재료 원가 기준 · 인건비 등 제외';
 const WEEKS = 4;
 const DAY_MS = 86_400_000;
-const CHART_HEIGHT = space.s8 * 4;
+/** DESIGN.md 9: chart height 180-220. */
+const CHART_HEIGHT = space.s10 * 5;
 const CHART_LABEL_WIDTH = space.s8 + space.s2;
-const CHART_LABEL_HEIGHT = fontSize.xs + space.s1;
+const CHART_LABEL_HEIGHT = fontSize.caption + space.s1;
+/** DESIGN.md 9: my purchases are 6px dots. */
+const DOT_RADIUS = space.s1 - lineWidth;
 
-type Series = { key: string; label: string; color: string; values: number[] };
+type Series = { key: string; label: string; color: string; values: number[]; kind: 'dots' | 'line' };
+
+function Chip({ label, tone }: { label: string; tone: 'warn' | 'neutral' }) {
+  return (
+    <View style={[styles.chip, tone === 'neutral' && styles.chipNeutral]}>
+      <Text style={[styles.chipText, tone === 'neutral' && styles.chipTextNeutral]}>{label}</Text>
+    </View>
+  );
+}
 
 function shortDate(isoDate: string): string {
   const [, month, day] = isoDate.split('-').map(Number);
@@ -76,8 +87,8 @@ function TrendChart({ series, labels }: { series: Series[]; labels: string[] }) 
   const min = Math.min(...all, 100);
   const max = Math.max(...all, 100);
   const margin = Math.max((max - min) * 0.15, 1);
-  const lo = min - margin;
-  const hi = max + margin;
+  const lo = Math.floor(min - margin);
+  const hi = Math.ceil(max + margin);
   const count = labels.length;
 
   const plotLeft = space.s8;
@@ -88,55 +99,58 @@ function TrendChart({ series, labels }: { series: Series[]; labels: string[] }) 
   const plotHeight = CHART_HEIGHT - plotTop - plotBottom;
   const x = (i: number) => plotLeft + (count > 1 ? (plotWidth * i) / (count - 1) : plotWidth / 2);
   const y = (v: number) => plotTop + plotHeight * (1 - (v - lo) / (hi - lo));
+  // Horizontal gridlines only: the 100 baseline plus the range ends when they do not crowd its label.
+  const gridValues = [hi, 100, lo].filter((v) => v === 100 || Math.abs(y(v) - y(100)) >= CHART_LABEL_HEIGHT);
 
   return (
     <View onLayout={onLayout} style={styles.chartBox}>
       {width > 0 ? (
         <>
           <Svg width={width} height={CHART_HEIGHT}>
-            <Line
-              x1={plotLeft}
-              x2={width - plotRight}
-              y1={y(100)}
-              y2={y(100)}
-              stroke={colors.line}
-              strokeWidth={lineWidth}
-              strokeDasharray={[space.s1, space.s1]}
-            />
+            {gridValues.map((v) => (
+              <Line
+                key={`grid-${v}`}
+                x1={plotLeft}
+                x2={width - plotRight}
+                y1={y(v)}
+                y2={y(v)}
+                stroke={colors.line}
+                strokeWidth={lineWidth}
+                strokeDasharray={[space.s1, space.s1]}
+              />
+            ))}
             {series.map((s) => (
               <Polyline
                 key={`line-${s.key}`}
                 points={s.values.map((v, i) => `${x(i)},${y(v)}`).join(' ')}
                 fill="none"
                 stroke={s.color}
-                strokeWidth={lineWidth * 2}
+                strokeWidth={s.kind === 'line' ? lineWidth * 2 : lineWidth}
+                strokeDasharray={s.kind === 'dots' ? [lineWidth * 2, lineWidth * 2] : undefined}
                 strokeLinejoin="round"
                 strokeLinecap="round"
               />
             ))}
-            {series.map((s) =>
-              s.values.map((v, i) => (
-                <Circle
-                  key={`dot-${s.key}-${i}`}
-                  cx={x(i)}
-                  cy={y(v)}
-                  r={space.s1}
-                  fill={colors.surface}
-                  stroke={s.color}
-                  strokeWidth={lineWidth * 2}
-                />
-              )),
-            )}
+            {series
+              .filter((s) => s.kind === 'dots')
+              .map((s) =>
+                s.values.map((v, i) => (
+                  <Circle key={`dot-${s.key}-${i}`} cx={x(i)} cy={y(v)} r={DOT_RADIUS} fill={s.color} />
+                )),
+              )}
           </Svg>
-          <Text
-            style={[
-              styles.chartLabel,
-              styles.chartRefLabel,
-              { width: plotLeft - space.s2, top: y(100) - CHART_LABEL_HEIGHT / 2 },
-            ]}
-          >
-            100
-          </Text>
+          {gridValues.map((v) => (
+            <Text
+              key={`axis-${v}`}
+              style={[
+                styles.chartLabel,
+                styles.chartRefLabel,
+                { width: plotLeft - space.s2, top: y(v) - CHART_LABEL_HEIGHT / 2 },
+              ]}
+            >
+              {v}
+            </Text>
+          ))}
           {series.map((s) => {
             const last = s.values[s.values.length - 1];
             const above = last >= 100;
@@ -147,7 +161,7 @@ function TrendChart({ series, labels }: { series: Series[]; labels: string[] }) 
                   styles.chartLabel,
                   styles.chartEndLabel,
                   {
-                    color: s.color,
+                    color: s.kind === 'dots' ? s.color : colors.text2,
                     left: x(s.values.length - 1) - CHART_LABEL_WIDTH / 2,
                     top: above ? y(last) - space.s2 - CHART_LABEL_HEIGHT : y(last) + space.s2,
                   },
@@ -171,25 +185,18 @@ function TrendChart({ series, labels }: { series: Series[]; labels: string[] }) 
   );
 }
 
-function Legend({ series, isExample, unavailable }: { series: Series[]; isExample: boolean; unavailable: boolean }) {
+function Legend({ series, unavailable }: { series: Series[]; unavailable: boolean }) {
   return (
     <View style={styles.legend}>
       {series.map((s) => (
         <View key={s.key} style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: s.color }]} />
+          <View
+            style={[s.kind === 'dots' ? styles.legendDot : styles.legendLine, { backgroundColor: s.color }]}
+          />
           <Text style={typography.caption}>{s.label}</Text>
         </View>
       ))}
-      {unavailable ? (
-        <View style={[styles.chip, styles.chipNeutral]}>
-          <Text style={[styles.chipText, styles.chipTextNeutral]}>참고 시세 없음</Text>
-        </View>
-      ) : null}
-      {isExample ? (
-        <View style={styles.chip}>
-          <Text style={styles.chipText}>예시</Text>
-        </View>
-      ) : null}
+      {unavailable ? <Chip label="참고 시세 없음" tone="neutral" /> : null}
     </View>
   );
 }
@@ -226,7 +233,7 @@ export default function IngredientTrendScreen() {
       <Screen>
         <Header backLabel={BACK_LABEL} title={FALLBACK_TITLE} />
         <Card>
-          <Notice>{errorMessage(detail.error)}</Notice>
+          <Notice style={styles.error}>{errorMessage(detail.error)}</Notice>
           <Button
             variant="secondary"
             label="다시 시도"
@@ -253,8 +260,8 @@ export default function IngredientTrendScreen() {
   const marketValues = weeks ? weeks.map((w) => w.market) : null;
   const labels = weeks ? weeks.map((w) => `${w.week}주`) : (mineValues ?? []).map((_, i) => `${i + 1}주`);
   const series: Series[] = [];
-  if (mineValues) series.push({ key: 'mine', label: '내 매입가', color: colors.primary, values: mineValues });
-  if (marketValues) series.push({ key: 'market', label: '시장 참고', color: colors.text3, values: marketValues });
+  if (marketValues) series.push({ key: 'market', label: '시장 참고', color: colors.market, values: marketValues, kind: 'line' });
+  if (mineValues) series.push({ key: 'mine', label: '내 매입가', color: colors.primary, values: mineValues, kind: 'dots' });
 
   const rose = (values: number[] | null) => values !== null && values.length > 1 && values[values.length - 1] > values[0];
   const fell = (values: number[] | null) => values !== null && values.length > 1 && values[values.length - 1] < values[0];
@@ -266,13 +273,18 @@ export default function IngredientTrendScreen() {
       key: `latest-${entry.supplierId}`,
       label: nameOf(entry.supplierId),
       hint: undefined as string | undefined,
-      value: `${formatWon(entry.unitPrice, { unit: '원/kg' })} · ${shortDate(entry.date)}`,
+      value: `${formatWon(entry.unitPrice, { unit: '원/kg' })} · ${shortDate(entry.date)}` as ReactNode,
     })),
     ...quotes.map((quote) => ({
       key: `quote-${quote.id}`,
       label: nameOf(quote.supplierId),
       hint: `${shortDate(quote.date)} 견적 · 매입 전`,
-      value: `견적 ${formatWon(quote.unitPrice, { unit: '원/kg' })}`,
+      value: (
+        <View style={styles.quoteValue}>
+          <Chip label="견적" tone="warn" />
+          <Text style={typography.rowAmount}>{formatWon(quote.unitPrice, { unit: '원/kg' })}</Text>
+        </View>
+      ) as ReactNode,
     })),
   ];
 
@@ -291,7 +303,7 @@ export default function IngredientTrendScreen() {
         subtitle={[ingredient.spec, '원/kg'].filter(Boolean).join(' · ')}
       />
 
-      <Card variant="emphasis" title="내 실제 매입가">
+      <Card variant="highlight" title="내 실제 매입가">
         {current ? (
           <>
             <Text style={typography.display}>
@@ -323,15 +335,16 @@ export default function IngredientTrendScreen() {
         )}
       </Card>
 
-      <Card title="내 매입가 · 시장 참고 추세">
-        <Notice>최근 4주 · 각 계열의 첫 주 = 100</Notice>
+      <Card style={styles.chartCard}>
+        <Text style={typography.sectionTitle}>내 매입가 · 시장 참고 추세</Text>
+        <Notice style={styles.chartBasis}>최근 4주 · 각 계열의 첫 주 = 100</Notice>
         {market.isPending ? (
           <View style={styles.center}>
             <ActivityIndicator color={colors.primary} />
           </View>
         ) : market.isError ? (
           <>
-            <Notice style={styles.evidence}>{`참고 시세를 불러오지 못했어요 · ${errorMessage(market.error)}`}</Notice>
+            <Notice style={[styles.evidence, styles.error]}>{`참고 시세를 불러오지 못했어요 · ${errorMessage(market.error)}`}</Notice>
             <Button
               variant="secondary"
               label="다시 시도"
@@ -342,7 +355,7 @@ export default function IngredientTrendScreen() {
           </>
         ) : (
           <>
-            <Legend series={series} isExample={marketData?.available === true && marketData.isExample} unavailable={marketUnavailable} />
+            <Legend series={series} unavailable={marketUnavailable} />
             {series.length > 0 ? (
               <TrendChart series={series} labels={labels} />
             ) : (
@@ -352,23 +365,26 @@ export default function IngredientTrendScreen() {
             {marketValues ? <Row label="시장 참고 지수" value={indexText(marketValues)} divider={false} /> : null}
             {marketUnavailable ? <Row label="시장 참고 지수" value="참고 시세 없음" divider={false} /> : null}
             {marketData?.available ? (
-              <Notice style={styles.evidence}>
-                {`${marketData.source} · 품목·등급·지역 확인${marketData.isExample ? ' · 예시' : ''}`}
-              </Notice>
+              <View style={styles.sourceRow}>
+                <Notice style={styles.sourceText}>{`${marketData.source} · 품목·등급·지역 확인`}</Notice>
+                {marketData.isExample ? <Chip label="예시" tone="warn" /> : null}
+              </View>
             ) : null}
           </>
         )}
       </Card>
 
       {showAdvice ? (
-        <Card title="다음 발주 전에 확인해 보세요">
+        <Card variant="emphasis">
+          <Text style={[typography.bodyStrong, styles.adviceTitle]}>다음 발주 전에 확인해 보세요</Text>
           <Text style={typography.body}>
             내 가격은 올랐지만 참고 시세는 내렸어요. 기존 거래처에 단가를 묻거나 다른 구매처에 견적을 받아 보세요.
           </Text>
         </Card>
       ) : null}
 
-      <Card title="등록된 구매처">
+      <Text style={[typography.sectionTitle, styles.sectionHeading]}>등록된 구매처</Text>
+      <Card>
         {supplierRows.length > 0 ? (
           supplierRows.map((row, i) => (
             <Row key={row.key} label={row.label} hint={row.hint} value={row.value} divider={i < supplierRows.length - 1} />
@@ -389,12 +405,21 @@ export default function IngredientTrendScreen() {
 const styles = StyleSheet.create({
   center: { paddingVertical: space.s8, alignItems: 'center' },
   retry: { marginTop: space.s3 },
-  displayUnit: { fontSize: fontSize.h, fontWeight: '600', color: colors.text2 },
+  displayUnit: { fontSize: fontSize.detail, fontWeight: '400', letterSpacing: 0, color: colors.text2 },
   evidence: { marginTop: space.s2 },
-  rowValue: { ...typography.bodyStrong, fontVariant: ['tabular-nums'] },
+  error: { color: colors.loss },
+  rowValue: typography.rowAmount,
+  chartCard: { borderRadius: radius.xl, padding: space.s5 },
+  chartBasis: { marginTop: space.s1 },
+  adviceTitle: { marginBottom: space.s2 },
+  sectionHeading: { marginTop: space.s7 },
+  quoteValue: { flexDirection: 'row', alignItems: 'center', gap: space.s2 },
+  sourceRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: space.s2, marginTop: space.s3 },
+  sourceText: { flexShrink: 1 },
   legend: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: space.s3, marginTop: space.s3 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: space.s1 },
-  legendDot: { width: space.s2, height: space.s2, borderRadius: radius.full },
+  legendDot: { width: DOT_RADIUS * 2, height: DOT_RADIUS * 2, borderRadius: radius.full },
+  legendLine: { width: space.s4, height: lineWidth * 2, borderRadius: radius.full },
   chip: {
     height: control.chipHeight,
     paddingHorizontal: space.s2,
@@ -402,7 +427,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent50,
     justifyContent: 'center',
   },
-  chipNeutral: { backgroundColor: colors.bg },
+  chipNeutral: { backgroundColor: colors.subtle, borderWidth: lineWidth, borderColor: colors.line },
   chipText: { fontSize: fontSize.xs, fontWeight: '600', color: colors.warn },
   chipTextNeutral: { color: colors.text2 },
   chartBox: { marginTop: space.s2, height: CHART_HEIGHT },
@@ -411,12 +436,12 @@ const styles = StyleSheet.create({
     width: CHART_LABEL_WIDTH,
     height: CHART_LABEL_HEIGHT,
     lineHeight: CHART_LABEL_HEIGHT,
-    fontSize: fontSize.xs,
-    color: colors.text3,
+    fontSize: fontSize.caption,
+    color: colors.text2,
     textAlign: 'center',
     fontVariant: ['tabular-nums'],
   },
   chartRefLabel: { left: 0, textAlign: 'right' },
-  chartEndLabel: { fontWeight: '700' },
+  chartEndLabel: { fontWeight: '600' },
   footer: { marginTop: space.s2 },
 });

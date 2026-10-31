@@ -141,8 +141,14 @@ export default function InvoiceNewScreen() {
         </View>
       </Card>
 
-      <Card title="시연할 명세서">
-        <Text style={styles.demoSupplier}>{`${demo.supplier} · ${monthDay(demo.date)}`}</Text>
+      <Card>
+        <Text accessibilityRole="header" style={styles.cardHeading}>
+          시연할 명세서
+        </Text>
+        <Text style={styles.demoSupplier}>
+          {demo.supplier}
+          <Text style={styles.demoDate}>{` · ${monthDay(demo.date)}`}</Text>
+        </Text>
         {demoItem ? (
           <Row
             label={`${demoItem.rawName} ${demoItem.packWeightG === null ? '' : `${demoItem.packWeightG / 1000}kg `}× ${demoItem.quantity}`}
@@ -157,10 +163,10 @@ export default function InvoiceNewScreen() {
 const styles = StyleSheet.create({
   photoFrame: {
     aspectRatio: 4 / 3,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     borderWidth: lineWidth,
     borderColor: colors.line,
-    backgroundColor: colors.bg,
+    backgroundColor: colors.subtle,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
@@ -174,12 +180,14 @@ const styles = StyleSheet.create({
     left: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.surface,
+    backgroundColor: colors.subtle,
   },
-  placeholder: { ...typography.secondary, color: colors.text3 },
+  placeholder: { ...typography.caption, textAlign: 'center', paddingHorizontal: space.s4 },
   photoHint: { marginTop: space.s3 },
   error: { color: colors.loss, marginTop: space.s2 },
   pickRow: { flexDirection: 'row', gap: space.s2, marginTop: space.s3 },
   pickButton: { flex: 1 },
+  cardHeading: { ...typography.sectionTitle, marginBottom: space.s3 },
   demoSupplier: { ...typography.bodyStrong, marginBottom: space.s1 },
+  demoDate: { ...typography.caption, fontWeight: '400' },
 });

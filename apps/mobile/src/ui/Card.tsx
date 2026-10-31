@@ -5,8 +5,8 @@ import { colors, radius, shadow, space, typography } from './tokens';
 
 export type CardProps = {
   children: ReactNode;
-  /** 'emphasis' is the wireframe's bold-border card (alert, key number): primary-50 background, no shadow. */
-  variant?: 'default' | 'emphasis';
+  /** highlight: the one key cost card per screen (DESIGN.md bg.highlight). emphasis: soft blue info surface. */
+  variant?: 'default' | 'emphasis' | 'highlight';
   /** Small grey caption above the content (tokens.css .card-title). */
   title?: string;
   style?: StyleProp<ViewStyle>;
@@ -14,7 +14,7 @@ export type CardProps = {
 
 export function Card({ children, variant = 'default', title, style }: CardProps) {
   return (
-    <View style={[styles.base, variant === 'emphasis' ? styles.emphasis : styles.default, style]}>
+    <View style={[styles.base, styles[variant], style]}>
       {title ? <Text style={styles.title}>{title}</Text> : null}
       {children}
     </View>
@@ -22,8 +22,9 @@ export function Card({ children, variant = 'default', title, style }: CardProps)
 }
 
 const styles = StyleSheet.create({
-  base: { borderRadius: radius.lg, padding: space.s4 },
+  base: { borderRadius: radius.lg, padding: space.s5 },
   default: { backgroundColor: colors.surface, ...shadow.card },
   emphasis: { backgroundColor: colors.primary50 },
+  highlight: { backgroundColor: colors.accent, borderRadius: radius.xl },
   title: { ...typography.cardTitle, marginBottom: space.s2 },
 });

@@ -5,7 +5,7 @@ import { ActivityIndicator, Image, Modal, StyleSheet, Text, View } from 'react-n
 
 import { useMenus } from '@/api';
 import { invoiceImageUrl, useConfirmResult, useInvoice } from '@/api/invoice';
-import { Button, Card, Header, Money, Notice, Row, Screen, colors, formatWon, space, typography } from '@/ui';
+import { Button, Card, Header, Money, Notice, Row, Screen, colors, fontSize, formatWon, space, typography } from '@/ui';
 
 function monthDay(date: string): string {
   const match = /^\d{4}-(\d{2})-(\d{2})$/.exec(date);
@@ -112,7 +112,7 @@ export default function InvoiceDoneScreen() {
           <ImageModal uri={invoiceImageUrl(invoiceId)} visible={showImage} onClose={() => setShowImage(false)} />
 
           {result.changes.length === 0 ? (
-            <Card variant="emphasis">
+            <Card>
               <Notice>이 매입으로 원가가 바뀐 메뉴가 없어요.</Notice>
             </Card>
           ) : null}
@@ -120,7 +120,7 @@ export default function InvoiceDoneScreen() {
           {result.changes.map((change) => {
             const { before, after } = change;
             return (
-              <Card key={change.menuId} variant="emphasis">
+              <Card key={change.menuId} variant="highlight">
                 <Text style={styles.menuName}>{change.menuName}</Text>
                 {after.total === null ? (
                   <Text style={styles.missing}>{`매입가 미등록 재료 ${after.missing.length}개 · 원가를 계산할 수 없어요`}</Text>
@@ -132,7 +132,7 @@ export default function InvoiceDoneScreen() {
                 )}
                 {before.total !== null && after.total !== null ? (
                   <>
-                    <Row label="직전 원가 대비" value={<Money value={after.total - before.total} signed />} />
+                    <Row label="직전 원가 대비" value={<Money value={after.total - before.total} signed style={styles.deltaAmount} />} />
                     <Row label="원가율" value={`${percent(before.ratio)} → ${percent(after.ratio)}`} divider={false} />
                   </>
                 ) : null}
@@ -147,7 +147,8 @@ export default function InvoiceDoneScreen() {
             );
           })}
 
-          <Card title="갱신된 메뉴 목록">
+          <Card>
+            <Text style={styles.cardHeading}>갱신된 메뉴 목록</Text>
             {menusQuery.isPending ? (
               <ActivityIndicator color={colors.primary} />
             ) : menusQuery.isError ? (
@@ -174,7 +175,8 @@ export default function InvoiceDoneScreen() {
             )}
           </Card>
 
-          <Card title="이번에 확인된 것">
+          <Card>
+            <Text style={styles.cardHeading}>이번에 확인된 것</Text>
             <Text style={styles.body}>
               새 매입가격이 레시피에 반영됐어요. 판매량·재고·배송비를 합산한 실제 절감액은 아직 계산하지 않았어요.
             </Text>
@@ -188,9 +190,11 @@ export default function InvoiceDoneScreen() {
 const styles = StyleSheet.create({
   errorText: { color: colors.loss },
   cardAction: { marginTop: space.s3 },
-  menuName: { ...typography.heading, marginBottom: space.s2 },
+  deltaAmount: { fontSize: fontSize.row, lineHeight: typography.rowAmount.lineHeight },
+  cardHeading: { ...typography.sectionTitle, marginBottom: space.s3 },
+  menuName: { ...typography.sectionTitle, marginBottom: space.s2 },
   bigRow: { flexDirection: 'row', alignItems: 'baseline', gap: space.s2, marginBottom: space.s2 },
-  perServing: { ...typography.secondary },
+  perServing: { ...typography.detailTitle, fontSize: fontSize.detail, color: colors.text2 },
   missing: { ...typography.secondary, color: colors.warn, marginBottom: space.s2 },
   priceNote: { marginTop: space.s2, color: colors.text2 },
   body: { ...typography.body, color: colors.text2 },

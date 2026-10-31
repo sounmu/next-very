@@ -72,7 +72,7 @@ export default function MenuListScreen() {
     body = (
       <Card>
         <Text style={typography.bodyStrong}>메뉴를 불러오지 못했어요</Text>
-        <Notice style={styles.errorDetail}>{errorMessage(menus.error)}</Notice>
+        <Notice style={[styles.errorDetail, styles.errorText]}>{errorMessage(menus.error)}</Notice>
         <Button variant="secondary" label="다시 시도" onPress={() => void menus.refetch()} style={styles.retry} />
       </Card>
     );
@@ -92,8 +92,14 @@ export default function MenuListScreen() {
     body = (
       <>
         {alert ? (
-          <Card variant="emphasis">
-            <Text style={typography.heading}>{`${alert.menuName} 원가가 ${formatWon(alert.delta)} 올랐어요`}</Text>
+          <Card variant="highlight">
+            <View accessible accessibilityLabel={`${alert.menuName} 원가가 ${formatWon(alert.delta)} 올랐어요`}>
+              <Text style={typography.heading}>{`${alert.menuName} 원가가`}</Text>
+              <View style={styles.heroLine}>
+                <Text style={typography.display}>{formatWon(alert.delta, { unit: '' })}</Text>
+                <Text style={styles.heroUnit}>원 올랐어요</Text>
+              </View>
+            </View>
             <Text style={styles.alertBody}>
               {alertNames.length > 0 ? `${alertNames.join(', ')} 매입가격이 달라졌어요.` : '재료 매입가격이 달라졌어요.'}
             </Text>
@@ -120,9 +126,9 @@ export default function MenuListScreen() {
     >
       <Header title="우리 가게 메뉴" subtitle="최근 매입가격을 반영한 1인분 원가" onTitleLongPress={resetDemo} />
       {status ? (
-        <Notice align="center" style={[styles.flash, status.error && styles.flashError]}>
-          {status.text}
-        </Notice>
+        <View style={[styles.flash, status.error && styles.flashError]}>
+          <Text style={[styles.flashText, status.error && styles.flashErrorText]}>{status.text}</Text>
+        </View>
       ) : null}
       {body}
       <Notice align="center">식재료 원가 기준 · 인건비 등 제외</Notice>
@@ -148,9 +154,9 @@ function MenuCard({ entry, onPress }: { entry: MenuEntry; onPress: () => void })
           />
         ) : (
           <>
-            <Row label="식재료 원가" value={<Money value={cost.total} />} />
+            <Row label="식재료 원가" value={<Money value={cost.total} style={styles.rowMoney} />} />
             <Row label="원가율" value={`${ratioPercent(cost.total, menu.price)}%`} divider={change !== null} />
-            {change !== null ? <Row label="이전 대비" value={<Money value={change} signed />} divider={false} /> : null}
+            {change !== null ? <Row label="이전 대비" value={<Money value={change} signed style={styles.rowMoney} />} divider={false} /> : null}
           </>
         )}
         {hasPendingQuote ? (
@@ -167,19 +173,25 @@ const styles = StyleSheet.create({
   center: { paddingVertical: space.s8, alignItems: 'center' },
   pressed: { opacity: opacity.pressed },
   flash: {
-    ...typography.secondary,
-    color: colors.primary,
+    alignSelf: 'center',
+    minHeight: control.chipHeight,
+    paddingHorizontal: space.s2,
+    borderRadius: radius.full,
     backgroundColor: colors.primary50,
-    paddingVertical: space.s2,
-    paddingHorizontal: space.s3,
-    borderRadius: radius.sm,
+    justifyContent: 'center',
   },
-  flashError: { color: colors.loss, backgroundColor: colors.loss50 },
+  flashError: { backgroundColor: colors.loss50 },
+  flashText: { ...typography.caption, fontSize: fontSize.xs, fontWeight: '600', color: colors.primary, textAlign: 'center' },
+  flashErrorText: { color: colors.loss },
+  rowMoney: { fontSize: fontSize.row, lineHeight: typography.rowAmount.lineHeight },
   errorDetail: { marginTop: space.s1 },
-  retry: { marginTop: space.s4 },
-  alertBody: { ...typography.body, color: colors.text2, marginTop: space.s1 },
-  alertButton: { marginTop: space.s4 },
-  menuHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: space.s3 },
+  errorText: { color: colors.loss },
+  retry: { marginTop: space.s6 },
+  heroLine: { flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap', columnGap: space.s1, marginTop: space.s1 },
+  heroUnit: { ...typography.detailTitle, fontSize: fontSize.detail, color: colors.text2 },
+  alertBody: { ...typography.body, color: colors.text2, marginTop: space.s2 },
+  alertButton: { marginTop: space.s6 },
+  menuHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: space.s3, marginBottom: space.s1 },
   missing: { ...typography.bodyStrong, color: colors.warn },
   chip: {
     alignSelf: 'flex-start',
@@ -190,5 +202,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: space.s3,
   },
-  chipText: { fontSize: fontSize.xs, fontWeight: '600', color: colors.warn },
+  chipText: { ...typography.caption, fontSize: fontSize.xs, fontWeight: '600', color: colors.warn },
 });

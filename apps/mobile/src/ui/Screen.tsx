@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { colors, lineWidth, space } from './tokens';
+import { colors, control, lineWidth, space } from './tokens';
 
 export type ScreenProps = {
   children: ReactNode;
@@ -20,11 +20,12 @@ export function Screen({ children, actions, contentStyle }: ScreenProps) {
   const insets = useSafeAreaInsets();
   return (
     <SafeAreaView style={styles.root} edges={['top', 'left', 'right']}>
+      <View style={styles.column}>
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={[
           styles.content,
-          actions ? null : { paddingBottom: insets.bottom + space.s4 },
+          actions ? null : { paddingBottom: insets.bottom + space.s6 },
           contentStyle,
         ]}
         keyboardShouldPersistTaps="handled"
@@ -34,16 +35,18 @@ export function Screen({ children, actions, contentStyle }: ScreenProps) {
       {actions ? (
         <View style={[styles.actions, { paddingBottom: Math.max(insets.bottom, space.s3) }]}>{actions}</View>
       ) : null}
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
+  column: { flex: 1, width: '100%', maxWidth: control.maxContentWidth, alignSelf: 'center' },
   scroll: { flex: 1 },
-  content: { paddingHorizontal: space.s4, paddingBottom: space.s4, gap: space.s3 },
+  content: { paddingHorizontal: space.s5, paddingBottom: space.s6, gap: space.s3 },
   actions: {
-    paddingHorizontal: space.s4,
+    paddingHorizontal: space.s5,
     paddingTop: space.s3,
     gap: space.s2,
     backgroundColor: colors.surface,

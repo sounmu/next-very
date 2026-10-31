@@ -2,7 +2,7 @@ import type { Ingredient, Menu } from '@marginlog/core';
 import { MenuUpsertSchema } from '@marginlog/core/src/api/menu';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState, type ReactNode } from 'react';
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type StyleProp, type TextInputProps, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
@@ -15,12 +15,14 @@ import {
   control,
   Header,
   iconSize,
+  iconStroke,
   lineWidth,
   Notice,
   opacity,
   radius,
   Row,
   Screen,
+  shadow,
   space,
   typography,
 } from '@/ui';
@@ -29,9 +31,6 @@ type RecipeRow = { key: number; ingredientId: string | null; grams: string };
 type FormInitial = { name: string; price: string; rows: RecipeRow[] };
 
 const EMPTY_FORM: FormInitial = { name: '', price: '', rows: [{ key: 0, ingredientId: null, grams: '' }] };
-
-/** design/tokens.css .scrim; tokens.ts has no scrim color yet. */
-const SCRIM = 'rgba(17,24,39,0.45)';
 
 function errorMessage(error: unknown): string {
   return error instanceof ApiError ? error.message : '불러오지 못했어요';
@@ -43,6 +42,11 @@ function isNotFound(error: unknown): boolean {
 
 function digitsOnly(text: string): string {
   return text.replace(/\D/g, '');
+}
+
+/** Display only: "10000" -> "10,000". The state keeps the bare digits. */
+function withCommas(digits: string): string {
+  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }
 
 function fullName(ingredient: Ingredient): string {
@@ -177,32 +181,21 @@ function RecipeForm({ menuId, initial, ingredients, pricedIds }: RecipeFormProps
         subtitle={menuId === 'new' ? undefined : `${initial.name} 수정`}
       />
 
-      <Card title="기본 정보">
+      <Text accessibilityRole="header" style={typography.sectionTitle}>기본 정보</Text>
+      <Card>
         <View style={styles.fields}>
           <Field label="메뉴명">
-            <View style={styles.input}>
-              <TextInput
-                style={styles.inputText}
-                value={name}
-                onChangeText={setName}
-                placeholder="예: 제육덮밥"
-                placeholderTextColor={colors.text3}
-                autoCorrect={false}
-              />
-            </View>
+            <TextBox value={name} onChangeText={setName} placeholder="예: 제육덮밥" autoCorrect={false} />
           </Field>
           <Field label="판매가">
-            <View style={styles.input}>
-              <TextInput
-                style={styles.inputText}
-                value={price}
-                onChangeText={(text) => setPrice(digitsOnly(text))}
-                keyboardType="number-pad"
-                placeholder="10000"
-                placeholderTextColor={colors.text3}
-              />
-              <Text style={styles.suffix}>원</Text>
-            </View>
+            <TextBox
+              value={withCommas(price)}
+              onChangeText={(text) => setPrice(digitsOnly(text))}
+              keyboardType="number-pad"
+              placeholder={withCommas('10000')}
+              suffix="원"
+              alignRight
+            />
           </Field>
           <Field label="기준 인분">
             <View style={[styles.input, styles.inputReadonly]}>
@@ -212,7 +205,8 @@ function RecipeForm({ menuId, initial, ingredients, pricedIds }: RecipeFormProps
         </View>
       </Card>
 
-      <Card title="재료별 사용량 · 구매 중량 기준">
+      <Text accessibilityRole="header" style={[typography.sectionTitle, styles.sectionGap]}>재료별 사용량 · 구매 중량 기준</Text>
+      <Card>
         {rows.map((row) => {
           const ingredient = row.ingredientId === null ? undefined : ingredientById.get(row.ingredientId);
           const unpriced = row.ingredientId !== null && !pricedIds.has(row.ingredientId);
@@ -222,24 +216,22 @@ function RecipeForm({ menuId, initial, ingredients, pricedIds }: RecipeFormProps
                 <Pressable
                   accessibilityRole="button"
                   onPress={() => setPickingKey(row.key)}
-                  style={({ pressed }) => [styles.input, styles.picker, pressed && styles.pressed]}
+                  style={({ pressed }) => [styles.input, styles.picker, unpriced && styles.inputWarn, pressed && styles.pressed]}
                 >
                   <Text numberOfLines={1} style={ingredient ? styles.inputText : styles.placeholder}>
                     {ingredient ? ingredient.name : '재료 선택'}
                   </Text>
                   <ChevronDownIcon />
                 </Pressable>
-                <View style={[styles.input, styles.grams]}>
-                  <TextInput
-                    style={styles.inputText}
-                    value={row.grams}
-                    onChangeText={(text) => updateRow(row.key, { grams: digitsOnly(text) })}
-                    keyboardType="number-pad"
-                    placeholder="0"
-                    placeholderTextColor={colors.text3}
-                  />
-                  <Text style={styles.suffix}>g</Text>
-                </View>
+                <TextBox
+                  boxStyle={styles.grams}
+                  value={row.grams}
+                  onChangeText={(text) => updateRow(row.key, { grams: digitsOnly(text) })}
+                  keyboardType="number-pad"
+                  placeholder="0"
+                  suffix="g"
+                  alignRight
+                />
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="재료 삭제"
@@ -274,7 +266,7 @@ function RecipeForm({ menuId, initial, ingredients, pricedIds }: RecipeFormProps
           <Pressable accessibilityRole="button" accessibilityLabel="닫기" style={styles.scrim} onPress={closePicker} />
           <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, space.s5) }]}>
             <View style={styles.grabber} />
-            <Text style={typography.heading}>재료 선택</Text>
+            <Text accessibilityRole="header" style={typography.detailTitle}>재료 선택</Text>
             <ScrollView style={styles.sheetList}>
               {ingredients.map((ingredient, index) => {
                 const taken = rows.some((row) => row.key !== pickingKey && row.ingredientId === ingredient.id);
@@ -312,10 +304,39 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
+type TextBoxProps = Omit<TextInputProps, 'style' | 'placeholderTextColor'> & {
+  suffix?: string;
+  alignRight?: boolean;
+  boxStyle?: StyleProp<ViewStyle>;
+};
+
+/** DESIGN.md 8.3 field: subtle surface, 1px line border, 2px primary border while focused. */
+function TextBox({ suffix, alignRight = false, boxStyle, onFocus, onBlur, ...input }: TextBoxProps) {
+  const [focused, setFocused] = useState(false);
+  return (
+    <View style={[styles.input, boxStyle, focused && styles.inputFocused]}>
+      <TextInput
+        {...input}
+        style={[styles.inputText, alignRight && styles.alignRight]}
+        placeholderTextColor={colors.text3}
+        onFocus={(event) => {
+          setFocused(true);
+          onFocus?.(event);
+        }}
+        onBlur={(event) => {
+          setFocused(false);
+          onBlur?.(event);
+        }}
+      />
+      {suffix ? <Text style={styles.suffix}>{suffix}</Text> : null}
+    </View>
+  );
+}
+
 function ChevronDownIcon() {
   return (
     <Svg width={iconSize.md} height={iconSize.md} viewBox="0 0 24 24" fill="none">
-      <Path d="M6 9l6 6 6-6" stroke={colors.text3} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M6 9l6 6 6-6" stroke={colors.text2} strokeWidth={iconStroke} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -323,7 +344,7 @@ function ChevronDownIcon() {
 function CloseIcon() {
   return (
     <Svg width={iconSize.md} height={iconSize.md} viewBox="0 0 24 24" fill="none">
-      <Path d="M6 6l12 12M18 6L6 18" stroke={colors.text2} strokeWidth={2} strokeLinecap="round" />
+      <Path d="M6 6l12 12M18 6L6 18" stroke={colors.text2} strokeWidth={iconStroke} strokeLinecap="round" />
     </Svg>
   );
 }
@@ -333,6 +354,8 @@ const styles = StyleSheet.create({
   pressed: { opacity: opacity.pressed },
   detail: { marginTop: space.s1 },
   retry: { marginTop: space.s4 },
+  /** Screen's s3 gap plus this margin makes the s7 section spacing. */
+  sectionGap: { marginTop: space.s7 - space.s3 },
   fields: { gap: space.s4 },
   field: { gap: space.s2 },
   input: {
@@ -340,21 +363,27 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     borderWidth: lineWidth,
     borderColor: colors.line,
-    backgroundColor: colors.surface,
-    paddingHorizontal: space.s3,
+    backgroundColor: colors.subtle,
+    paddingHorizontal: space.s4,
     flexDirection: 'row',
     alignItems: 'center',
     gap: space.s2,
   },
-  inputText: { flex: 1, ...typography.body, fontWeight: '500', paddingVertical: 0 },
+  /** 2px border; padding shrinks by the extra 1px so the text does not shift. */
+  inputFocused: { borderWidth: lineWidth * 2, borderColor: colors.primary, paddingHorizontal: space.s4 - lineWidth },
+  inputWarn: { borderColor: colors.warn },
+  /** outlineWidth 0: the wrapper draws the 2px focus border, so web's default input outline is dropped. */
+  inputText: { flex: 1, minWidth: 0, ...typography.body, color: colors.text, paddingVertical: 0, outlineStyle: 'solid', outlineWidth: 0 },
+  alignRight: { textAlign: 'right' },
   placeholder: { flex: 1, ...typography.body, color: colors.text3 },
   suffix: typography.secondary,
-  inputReadonly: { backgroundColor: colors.bg },
-  readonlyText: { ...typography.body, color: colors.text2, fontWeight: '500' },
+  inputReadonly: { backgroundColor: colors.disabledBg },
+  readonlyText: { ...typography.body, color: colors.text2 },
   recipeRow: { marginBottom: space.s3, gap: space.s1 },
   recipeLine: { flexDirection: 'row', alignItems: 'center', gap: space.s2 },
-  picker: { flex: 2 },
-  grams: { flex: 1 },
+  /** 5:2 keeps "돼지고기 앞다리" on one line at 390 wide; grams uses tighter padding. */
+  picker: { flex: 5 },
+  grams: { flex: 2, paddingHorizontal: space.s3 },
   remove: {
     width: control.iconButton,
     height: control.iconButton,
@@ -366,18 +395,18 @@ const styles = StyleSheet.create({
   emptyRows: { marginBottom: space.s3 },
   saveError: { color: colors.loss },
   modalRoot: { flex: 1, justifyContent: 'flex-end' },
-  scrim: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: SCRIM },
+  scrim: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: colors.scrim },
   sheet: {
     backgroundColor: colors.surface,
     borderTopLeftRadius: radius.xl,
     borderTopRightRadius: radius.xl,
+    padding: space.s5,
     paddingTop: space.s3,
-    paddingHorizontal: space.s5,
     maxHeight: '70%',
     gap: space.s3,
+    ...shadow.sheet,
   },
-  /** design/tokens.css .sheet::before */
-  grabber: { alignSelf: 'center', width: 36, height: 5, borderRadius: 3, backgroundColor: colors.line },
+  grabber: { alignSelf: 'center', width: space.s10, height: space.s1, borderRadius: radius.full, backgroundColor: colors.line },
   sheetList: { flexGrow: 0 },
   taken: { opacity: opacity.disabled },
 });

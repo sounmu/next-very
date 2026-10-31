@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { colors, lineWidth, space, typography } from './tokens';
+import { colors, control, lineWidth, space, typography } from './tokens';
 
 export type RowProps = {
   label: string;
@@ -30,12 +30,12 @@ export function Row({ label, hint, value, bold = false, divider = true }: RowPro
 }
 
 const styles = StyleSheet.create({
-  root: { flexDirection: 'row', alignItems: 'center', gap: space.s3, paddingVertical: space.s3 },
+  root: { flexDirection: 'row', alignItems: 'center', gap: space.s3, paddingVertical: space.s3, minHeight: control.iconButton },
   divider: { borderBottomWidth: lineWidth, borderBottomColor: colors.line },
   grow: { flex: 1, minWidth: 0 },
   label: { ...typography.body, color: colors.text2 },
   labelBold: { ...typography.body, fontWeight: '700' },
   hint: { ...typography.caption, marginTop: space.s1 },
-  value: { ...typography.bodyStrong, fontVariant: ['tabular-nums'] },
-  valueBold: { ...typography.body, ...typography.amount },
+  value: typography.rowAmount,
+  valueBold: { ...typography.rowAmount, fontWeight: '700' },
 });

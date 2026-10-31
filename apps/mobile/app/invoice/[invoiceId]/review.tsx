@@ -107,16 +107,25 @@ type FieldProps = {
   onChangeText: (text: string) => void;
 };
 
+/** Shows "90000" as "90,000"; anything that is not plain digits is shown as typed. */
+function withThousands(text: string): string {
+  return /^\d+$/.test(text) ? text.replace(/\B(?=(\d{3})+(?!\d))/g, ',') : text;
+}
+
 function Field({ label, value, unit, warn, placeholder = '0', keyboardType, onChangeText }: FieldProps) {
+  const [focused, setFocused] = useState(false);
+  const money = unit === '원';
   return (
     <View style={styles.field}>
       <Text style={styles.fieldLabel}>{label}</Text>
-      <View style={[styles.inputWrap, warn && styles.inputWarn]}>
+      <View style={[styles.inputWrap, warn && styles.inputWarn, focused && styles.inputFocused]}>
         <TextInput
           accessibilityLabel={label}
           style={styles.input}
-          value={value}
-          onChangeText={onChangeText}
+          value={money ? withThousands(value) : value}
+          onChangeText={money ? (text) => onChangeText(text.replace(/,/g, '')) : onChangeText}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
           keyboardType={keyboardType}
           inputMode={keyboardType === 'number-pad' ? 'numeric' : 'decimal'}
           placeholder={placeholder}
@@ -305,7 +314,7 @@ export default function InvoiceReviewScreen() {
             const previous = entry.previousUnitPrice;
             return (
               <View key={entry.index} style={styles.itemGroup}>
-                <Card variant="emphasis" style={row.flagged ? styles.itemFlagged : undefined}>
+                <Card style={row.flagged ? styles.itemFlagged : undefined}>
                   <View style={styles.itemHead}>
                     <Text style={styles.itemName}>{entry.item.rawName || `품목 ${entry.index + 1}`}</Text>
                     {row.flagged ? <Chip tone="warn">확인 필요</Chip> : null}
@@ -338,7 +347,11 @@ export default function InvoiceReviewScreen() {
                   <Row
                     label="환산 매입가"
                     hint={unitPrice === null ? '규격 · 수량 · 금액을 모두 입력하면 계산돼요' : undefined}
-                    value={unitPrice === null ? '—' : formatWon(unitPrice, { unit: '원/kg' })}
+                    value={
+                      <Text style={typography.amountLg}>
+                        {unitPrice === null ? '—' : formatWon(unitPrice, { unit: '원/kg' })}
+                      </Text>
+                    }
                     bold
                     divider={false}
                   />
@@ -384,9 +397,6 @@ export default function InvoiceReviewScreen() {
   );
 }
 
-/** Width of the bordered value box in a Field row; the label takes the rest of the row. */
-const fieldInputWidth = 168;
-
 const styles = StyleSheet.create({
   loadingText: { marginTop: space.s3 },
   errorText: { color: colors.loss },
@@ -408,7 +418,7 @@ const styles = StyleSheet.create({
   chipTextWarn: { color: colors.warn },
   supplierHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.s2 },
   supplierName: { ...typography.heading, flexShrink: 1 },
-  supplierDate: { ...typography.secondary, fontWeight: '400', marginTop: space.s1 },
+  supplierDate: { ...typography.caption, marginTop: space.s1 },
   itemGroup: { gap: space.s3 },
   itemFlagged: { borderWidth: lineWidth * 2, borderColor: colors.warn },
   itemHead: {
@@ -419,10 +429,9 @@ const styles = StyleSheet.create({
     marginBottom: space.s2,
   },
   itemName: { ...typography.sectionTitle, flexShrink: 1 },
-  field: { flexDirection: 'row', alignItems: 'center', gap: space.s3, paddingVertical: space.s2 },
-  fieldLabel: { ...typography.body, color: colors.text2, flex: 1 },
+  field: { gap: space.s2, paddingVertical: space.s2 },
+  fieldLabel: typography.secondary,
   inputWrap: {
-    width: fieldInputWidth,
     overflow: 'hidden',
     flexDirection: 'row',
     alignItems: 'center',
@@ -431,10 +440,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.s3,
     borderWidth: lineWidth,
     borderColor: colors.line,
-    borderRadius: radius.sm,
-    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    backgroundColor: colors.subtle,
   },
   inputWarn: { borderColor: colors.warn },
+  /** 2px border; padding gives back the extra 1px so the text does not shift. */
+  inputFocused: {
+    borderWidth: lineWidth * 2,
+    borderColor: colors.primary,
+    paddingHorizontal: space.s3 - lineWidth,
+  },
   input: {
     width: 0,
     flexGrow: 1,
@@ -445,12 +460,12 @@ const styles = StyleSheet.create({
     ...typography.bodyStrong,
     fontVariant: ['tabular-nums'],
   },
-  inputUnit: { ...typography.caption, color: colors.text2 },
+  inputUnit: typography.secondary,
   issue: { ...typography.caption, color: colors.warn, marginTop: space.s1 },
   quote: { ...typography.secondary, marginTop: space.s2 },
   itemNotice: { marginTop: space.s2 },
   ingredientName: { ...typography.bodyStrong, marginBottom: space.s1 },
-  priceChange: { ...typography.bodyStrong, fontVariant: ['tabular-nums'] },
+  priceChange: typography.rowAmount,
   modal: {
     flex: 1,
     backgroundColor: colors.text,

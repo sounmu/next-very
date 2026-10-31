@@ -8,12 +8,13 @@ import {
   Button,
   Card,
   colors,
+  control,
+  fontSize,
   formatWon,
   Header,
   Money,
   Notice,
   opacity,
-  radius,
   Row,
   Screen,
   space,
@@ -94,7 +95,7 @@ export default function MenuCostScreen() {
 
     body = (
       <>
-        <Card variant="emphasis" title="현재 식재료 원가">
+        <Card variant="highlight" title="현재 식재료 원가">
           {cost.total === null ? (
             <>
               <Text style={styles.missingTotal}>{`매입가 미등록 재료 ${cost.missing.length}개`}</Text>
@@ -102,10 +103,16 @@ export default function MenuCostScreen() {
             </>
           ) : (
             <>
-              <Text style={typography.display}>{formatWon(cost.total)}</Text>
+              <View style={styles.hero}>
+                <Text style={typography.display}>{formatWon(cost.total, { unit: '' })}</Text>
+                <Text style={styles.heroUnit}>원</Text>
+              </View>
               {cost.previousTotal !== null && totalChange !== null ? (
                 <>
-                  <Row label={`이전 ${formatWon(cost.previousTotal)} 대비`} value={<Money value={totalChange} signed />} />
+                  <Row
+                    label={`이전 ${formatWon(cost.previousTotal)} 대비`}
+                    value={<Money value={totalChange} signed style={styles.rowMoney} />}
+                  />
                   <Row
                     label="원가율"
                     value={`${ratioPercent(cost.previousTotal, menu.price)}% → ${ratioPercent(cost.total, menu.price)}%`}
@@ -128,8 +135,11 @@ export default function MenuCostScreen() {
                 ? `${line.grams}g`
                 : `${line.grams}g / ${formatWon(line.unitPrice, { unit: '원·kg' })}`}
             </Text>
-            <Row label="1인분 재료비" value={<Money value={line.cost} />} />
-            <Row label={`이전 ${formatWon(line.previousCost)} 대비`} value={<Money value={line.delta} signed />} />
+            <Row label="1인분 재료비" value={<Money value={line.cost} style={styles.rowMoney} />} />
+            <Row
+              label={`이전 ${formatWon(line.previousCost)} 대비`}
+              value={<Money value={line.delta} signed style={styles.rowMoney} />}
+            />
             <Row
               label="구매처"
               value={line.supplierId === null ? '구매처 미상' : (supplierName.get(line.supplierId) ?? line.supplierId)}
@@ -143,7 +153,7 @@ export default function MenuCostScreen() {
               <Row
                 key={line.ingredientId}
                 label={`${nameOf(line.ingredientId)} · ${line.grams}g`}
-                value={line.cost === null ? <Text style={styles.missing}>매입가 미등록</Text> : <Money value={line.cost} />}
+                value={line.cost === null ? <Text style={styles.missing}>매입가 미등록</Text> : <Money value={line.cost} style={styles.rowMoney} />}
                 divider={index < unchanged.length - 1}
               />
             ))}
@@ -198,17 +208,16 @@ const styles = StyleSheet.create({
   pressed: { opacity: opacity.pressed },
   detail: { marginTop: space.s1 },
   retry: { marginTop: space.s4 },
-  link: {
-    paddingVertical: space.s2,
-    paddingHorizontal: space.s3,
-    borderRadius: radius.full,
-    backgroundColor: colors.primary50,
-  },
-  linkText: { ...typography.secondary, color: colors.primary },
+  link: { minHeight: control.iconButton, minWidth: control.iconButton, justifyContent: 'center' },
+  linkText: { ...typography.bodyStrong, color: colors.primary },
+  hero: { flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap', gap: space.s1, marginBottom: space.s2 },
+  heroUnit: { ...typography.detailTitle, fontSize: fontSize.detail, color: colors.text2 },
+  rowMoney: { fontSize: fontSize.row, lineHeight: typography.rowAmount.lineHeight },
   missingTotal: { ...typography.heading, color: colors.warn },
   missingHint: { ...typography.caption, marginTop: space.s1 },
-  sectionTitle: { ...typography.sectionTitle, paddingTop: space.s2 },
-  lineMeta: { ...typography.caption, marginTop: space.s1 },
+  /** Screen gap (s3) + s4 = s7 above a new section. */
+  sectionTitle: { ...typography.sectionTitle, marginTop: space.s4 },
+  lineMeta: { ...typography.caption, marginTop: space.s1, marginBottom: space.s1 },
   missing: { ...typography.bodyStrong, color: colors.warn },
-  summary: { ...typography.bodyStrong, color: colors.primary, textAlign: 'center', paddingVertical: space.s2 },
+  summary: { ...typography.bodyStrong, color: colors.text, paddingVertical: space.s2 },
 });

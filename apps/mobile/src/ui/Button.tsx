@@ -1,11 +1,11 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, type StyleProp, type ViewStyle } from 'react-native';
 
-import { colors, control, opacity, radius, space } from './tokens';
+import { colors, control, lineWidth, opacity, radius, space, typography } from './tokens';
 
 export type ButtonProps = {
   label: string;
   onPress?: () => void;
-  /** primary: filled teal (.btn-primary). secondary: primary-50 tint with teal text (.btn-secondary). */
+  /** primary: black pill. secondary: white with a border. */
   variant?: 'primary' | 'secondary';
   disabled?: boolean;
   /** Shows a spinner in place of the label and blocks presses. */
@@ -25,14 +25,14 @@ export function Button({ label, onPress, variant = 'primary', disabled = false, 
         styles.base,
         primary ? (pressed ? styles.primaryPressed : styles.primary) : styles.secondary,
         !primary && pressed && styles.pressed,
-        disabled && styles.disabled,
+        disabled && (primary ? styles.disabledPrimary : styles.disabled),
         style,
       ]}
     >
       {loading ? (
-        <ActivityIndicator color={primary ? colors.surface : colors.primary} />
+        <ActivityIndicator color={primary ? colors.surface : colors.text} />
       ) : (
-        <Text style={[styles.label, primary ? styles.labelPrimary : styles.labelSecondary]}>{label}</Text>
+        <Text style={[styles.label, primary ? styles.labelPrimary : styles.labelSecondary, disabled && primary && styles.labelDisabled]}>{label}</Text>
       )}
     </Pressable>
   );
@@ -41,17 +41,25 @@ export function Button({ label, onPress, variant = 'primary', disabled = false, 
 const styles = StyleSheet.create({
   base: {
     height: control.buttonHeight,
-    borderRadius: radius.md,
-    paddingHorizontal: space.s4,
+    borderRadius: radius.full,
+    paddingHorizontal: space.s5,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  primary: { backgroundColor: colors.primary },
-  primaryPressed: { backgroundColor: colors.primary600 },
-  secondary: { backgroundColor: colors.primary50 },
+  primary: { backgroundColor: colors.action },
+  primaryPressed: { backgroundColor: colors.actionPressed },
+  secondary: {
+    height: control.secondaryButtonHeight,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    borderWidth: lineWidth,
+    borderColor: colors.line,
+  },
   pressed: { opacity: opacity.pressed },
   disabled: { opacity: opacity.disabled },
-  label: { fontSize: control.buttonFontSize, fontWeight: '700' },
+  disabledPrimary: { backgroundColor: colors.disabledBg },
+  label: typography.button,
   labelPrimary: { color: colors.surface },
-  labelSecondary: { color: colors.primary },
+  labelSecondary: { color: colors.text },
+  labelDisabled: { color: colors.disabledText },
 });

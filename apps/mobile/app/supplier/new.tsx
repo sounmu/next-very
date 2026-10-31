@@ -31,7 +31,6 @@ import {
   Screen,
   colors,
   control,
-  deltaColor,
   fontSize,
   formatWon,
   lineWidth,
@@ -80,6 +79,30 @@ function parsePackWeightG(kg: string): number | null {
 function optional(text: string): string | undefined {
   const trimmed = text.trim();
   return trimmed ? trimmed : undefined;
+}
+
+/** Warning-type status chip (DESIGN.md state.warningBg). */
+function Chip({ label }: { label: string }) {
+  return (
+    <View style={styles.chip}>
+      <Text style={styles.chipText}>{label}</Text>
+    </View>
+  );
+}
+
+function CardHead({ title, chip }: { title: string; chip: string }) {
+  return (
+    <View style={styles.cardHead}>
+      <Text style={typography.cardTitle}>{title}</Text>
+      <Chip label={chip} />
+    </View>
+  );
+}
+
+function changeColor(diff: number): string {
+  if (diff < 0) return colors.primary;
+  if (diff > 0) return colors.loss;
+  return colors.text2;
 }
 
 type FieldProps = { label: string; required?: boolean; hint?: string; children: ReactNode };
@@ -135,13 +158,14 @@ function MenuPreview({ menu, allPurchases, ingredientId, unitPrice, last }: Menu
 
   return (
     <View style={[styles.previewItem, !last && styles.previewDivider]}>
-      <Text style={typography.sectionTitle}>
-        {`${menu.name} ${formatWon(current.total, { unit: '' })} → ${formatWon(preview.total)}`}
+      <Text style={typography.bodyStrong}>{menu.name}</Text>
+      <Text style={typography.amountLg}>
+        {`${formatWon(current.total, { unit: '' })} → ${formatWon(preview.total)}`}
       </Text>
       <Text style={styles.subline}>
         {`원가율 ${ratioPercent(current.total, menu.price)}% → ${ratioPercent(preview.total, menu.price)}%`}
       </Text>
-      <Text style={[styles.previewDelta, { color: deltaColor(diff) }]}>{deltaText}</Text>
+      <Text style={[styles.previewDelta, { color: changeColor(diff) }]}>{deltaText}</Text>
       {currentUnitPrice !== null ? (
         <Notice>{`사용량 ${grams}g × kg당 ${formatWon(Math.abs(currentUnitPrice - unitPrice))} 차이`}</Notice>
       ) : null}
@@ -273,7 +297,8 @@ export default function SupplierNewScreen() {
         </Card>
 
         {saved ? (
-          <Card variant="emphasis" title="새 구매처">
+          <Card variant="emphasis">
+            <CardHead title="새 구매처" chip="견적" />
             <Text style={typography.sectionTitle}>저장했어요</Text>
             <Text style={styles.subline}>명세서 확인 전에는 원가에 반영되지 않아요</Text>
             <Row label="구매처" value={saved.supplierName} />
@@ -304,6 +329,7 @@ export default function SupplierNewScreen() {
                   keyboardType="number-pad"
                   inputMode="numeric"
                   suffix="원/kg"
+                  style={styles.inputMoney}
                 />
               </Field>
               <Field label="규격" required hint="박스 단위 규격">
@@ -324,7 +350,8 @@ export default function SupplierNewScreen() {
         )}
 
         {unitPrice !== null ? (
-          <Card variant="emphasis" title="이 단가로 사면">
+          <Card variant="emphasis">
+            <CardHead title="이 단가로 사면" chip="견적" />
             {menus.length > 0 ? (
               menus.map((menu, i) => (
                 <MenuPreview
@@ -368,14 +395,24 @@ const styles = StyleSheet.create({
     borderWidth: lineWidth,
     borderColor: colors.line,
     borderRadius: radius.md,
-    backgroundColor: colors.surface,
-    paddingHorizontal: space.s3,
+    backgroundColor: colors.subtle,
+    paddingHorizontal: space.s4,
     gap: space.s2,
   },
-  inputBoxFocused: { borderColor: colors.primary },
-  input: { flex: 1, height: '100%', fontSize: fontSize.body, color: colors.text },
-  inputSuffix: { ...typography.caption, color: colors.text2 },
-  previewItem: { gap: space.s1, paddingVertical: space.s2 },
+  inputBoxFocused: { borderColor: colors.primary, borderWidth: lineWidth * 2 },
+  input: { ...typography.body, flex: 1, minWidth: 0, height: '100%' },
+  inputMoney: { ...typography.amount, fontSize: fontSize.body, textAlign: 'right' },
+  inputSuffix: { ...typography.body, color: colors.text2 },
+  cardHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.s2, marginBottom: space.s2 },
+  chip: {
+    height: control.chipHeight,
+    borderRadius: radius.full,
+    paddingHorizontal: space.s2,
+    justifyContent: 'center',
+    backgroundColor: colors.accent50,
+  },
+  chipText: { ...typography.caption, fontSize: fontSize.xs, fontWeight: '600', color: colors.warn },
+  previewItem: { gap: space.s1, paddingVertical: space.s3 },
   previewDivider: { borderBottomWidth: lineWidth, borderBottomColor: colors.line },
   subline: { ...typography.body, color: colors.text2 },
   previewDelta: { ...typography.bodyStrong, fontVariant: ['tabular-nums'] },
