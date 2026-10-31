@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type, type Schema } from "@google/genai";
-import { seed, type ExtractResult } from "@marginlog/core";
+import { isUnit, seed, type ExtractResult, type Unit } from "@marginlog/core";
 import sharp from "sharp";
 import { z } from "zod";
 
@@ -8,14 +8,17 @@ const TIMEOUT_MS = 8000;
 const DEFAULT_GEMINI_MODEL = "gemini-flash-latest";
 
 const PROMPT = [
-  "This photo is a Korean supplier invoice (거래명세서). Read it and return JSON only.",
+  "This photo is a Korean supplier invoice or receipt (거래명세서, 영수증, 주문내역). Read it and return JSON only.",
   "supplier: the supplier (seller) name exactly as printed.",
-  "date: the invoice date as YYYY-MM-DD.",
+  "date: the purchase date as YYYY-MM-DD.",
   "items: one entry per printed row. rawName is the item name exactly as printed; do not rename, translate or normalize it.",
-  "packWeightG: weight of one pack in grams (10kg -> 10000), or null when no weight is printed. packUnit: the pack unit as printed (예: 박스, kg, 봉).",
+  "packSize and packUnit: the size of one pack as printed, e.g. 10kg -> 10 and kg, 1L -> 1 and L, 30구 -> 30 and ea.",
+  "packUnit is one of g, kg, mL, L, ea (ea = pieces). When the size or unit is not printed, use null; never guess.",
   "quantity: number of packs. unitPrice: price of one pack in won. amount: row amount in won.",
   "total: the invoice total in won. Copy numbers as printed; never compute or guess missing values.",
 ].join("\n");
+
+const UNIT_VALUES = ["g", "kg", "mL", "L", "ea"];
 
 const responseSchema: Schema = {
   type: Type.OBJECT,
@@ -28,14 +31,14 @@ const responseSchema: Schema = {
         type: Type.OBJECT,
         properties: {
           rawName: { type: Type.STRING },
-          packWeightG: { type: Type.INTEGER, nullable: true },
-          packUnit: { type: Type.STRING },
+          packSize: { type: Type.NUMBER, nullable: true },
+          packUnit: { type: Type.STRING, format: "enum", enum: UNIT_VALUES, nullable: true },
           quantity: { type: Type.NUMBER },
           unitPrice: { type: Type.INTEGER },
           amount: { type: Type.INTEGER },
         },
-        required: ["rawName", "packWeightG", "packUnit", "quantity", "unitPrice", "amount"],
-        propertyOrdering: ["rawName", "packWeightG", "packUnit", "quantity", "unitPrice", "amount"],
+        required: ["rawName", "packSize", "packUnit", "quantity", "unitPrice", "amount"],
+        propertyOrdering: ["rawName", "packSize", "packUnit", "quantity", "unitPrice", "amount"],
       },
     },
     total: { type: Type.INTEGER },
@@ -50,8 +53,8 @@ const ModelOutputSchema = z.object({
   items: z.array(
     z.object({
       rawName: z.string(),
-      packWeightG: z.number().nullable(),
-      packUnit: z.string(),
+      packSize: z.number().nullable(),
+      packUnit: z.string().nullable(),
       quantity: z.number(),
       unitPrice: z.number(),
       amount: z.number(),
@@ -59,6 +62,22 @@ const ModelOutputSchema = z.object({
   ),
   total: z.number(),
 });
+
+export interface Extraction {
+  result: ExtractResult;
+  isDemo: boolean;
+}
+
+const UNIT_SPELLINGS: Record<string, Unit> = { ml: "mL", l: "L", 개: "ea", ea: "ea", g: "g", kg: "kg" };
+
+function toUnit(value: string | null): Unit | null {
+  if (value === null) return null;
+  const text = value.trim();
+  if (isUnit(text)) return text;
+  return UNIT_SPELLINGS[text.toLowerCase()] ?? null;
+}
+
+const won = (n: number): number => Math.max(0, Math.round(n));
 
 async function normalizeImage(image: Buffer): Promise<Buffer> {
   return sharp(image)
@@ -68,7 +87,7 @@ async function normalizeImage(image: Buffer): Promise<Buffer> {
     .toBuffer();
 }
 
-async function extractWithGemini(image: Buffer, apiKey: string): Promise<ExtractResult> {
+async function extractWithGemini(image: Buffer, apiKey: string): Promise<Extraction> {
   const jpeg = await normalizeImage(image);
   const ai = new GoogleGenAI({ apiKey });
   const controller = new AbortController();
@@ -103,18 +122,21 @@ async function extractWithGemini(image: Buffer, apiKey: string): Promise<Extract
     if (!text) throw new Error("Gemini returned no text");
     const out = ModelOutputSchema.parse(JSON.parse(text));
     return {
-      supplier: out.supplier.trim(),
-      date: out.date.trim(),
-      items: out.items.map((i) => ({
-        rawName: i.rawName.trim(),
-        packWeightG: i.packWeightG === null ? null : Math.round(i.packWeightG),
-        packUnit: i.packUnit.trim(),
-        quantity: i.quantity,
-        unitPrice: Math.round(i.unitPrice),
-        amount: Math.round(i.amount),
-        confidence: "high",
-      })),
-      total: Math.round(out.total),
+      isDemo: false,
+      result: {
+        supplier: out.supplier.trim(),
+        date: out.date.trim(),
+        items: out.items.map((i) => ({
+          rawName: i.rawName.trim(),
+          packSize: i.packSize,
+          packUnit: toUnit(i.packUnit),
+          quantity: i.quantity,
+          unitPrice: won(i.unitPrice),
+          amount: won(i.amount),
+          confidence: "high",
+        })),
+        total: won(out.total),
+      },
     };
   } finally {
     clearTimeout(timer);
@@ -123,20 +145,18 @@ async function extractWithGemini(image: Buffer, apiKey: string): Promise<Extract
 
 /**
  * Reads an invoice photo. The model only reads printed values; ingredient
- * mapping happens in aliases.ts. Falls back to seed.demoExtract when the key is
- * missing, the call fails or it takes over 8 seconds, unless DEMO_FALLBACK=0.
+ * mapping happens in aliases.ts. Falls back to the seed demo invoice extraction
+ * when the key is missing, the call fails or it takes over 8 seconds, unless
+ * DEMO_FALLBACK=0.
  */
-export async function extractInvoice(
-  image: Buffer,
-  mime: string,
-): Promise<{ result: ExtractResult; isDemo: boolean }> {
+export async function extractInvoice(image: Buffer, mime: string): Promise<Extraction> {
   try {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) throw new Error("GEMINI_API_KEY is not set");
-    return { result: await extractWithGemini(image, apiKey), isDemo: false };
+    return await extractWithGemini(image, apiKey);
   } catch (err) {
     if (process.env.DEMO_FALLBACK === "0") throw err;
     console.warn(`[ocr] using demo extract for ${mime} upload:`, err instanceof Error ? err.message : err);
-    return { result: structuredClone(seed.demoExtract), isDemo: true };
+    return { result: structuredClone(seed.invoices[0].extraction), isDemo: true };
   }
 }

@@ -1,34 +1,43 @@
-import { computeMenuCost, costAlert, MenusResponseSchema, type Menu, type Purchase, type Quote } from "@marginlog/core";
+import { computeMenuCost, type Menu } from "@marginlog/core";
+import { MenuResponseSchema, MenusResponseSchema } from "@marginlog/core/src/api/menus";
 import { getDb } from "../../../db/client";
+import { menus, recipeLines } from "../../../db/schema";
 import { loadState } from "../../../lib/repo";
+import { readMenuUpsert } from "./shared";
 
 export const dynamic = "force-dynamic";
-
-/** A quote is pending until that supplier has a confirmed purchase of that ingredient dated on or after it. */
-function hasPendingQuote(menu: Menu, quotes: readonly Quote[], purchases: readonly Purchase[]): boolean {
-  const ids = new Set(menu.recipe.map((l) => l.ingredientId));
-  return quotes.some(
-    (q) =>
-      ids.has(q.ingredientId) &&
-      !purchases.some(
-        (p) =>
-          p.status === "confirmed" &&
-          p.supplierId === q.supplierId &&
-          p.ingredientId === q.ingredientId &&
-          p.date >= q.date,
-      ),
-  );
-}
 
 export async function GET() {
   const state = await loadState(getDb());
   const body = MenusResponseSchema.parse({
     menus: state.menus.map((menu) => ({
       menu,
-      cost: computeMenuCost(menu, state.purchases),
-      hasPendingQuote: hasPendingQuote(menu, state.quotes, state.purchases),
+      cost: computeMenuCost(menu, state.ingredients, state.purchases),
     })),
-    alert: costAlert(state.menus, state.purchases),
   });
   return Response.json(body);
+}
+
+export async function POST(request: Request) {
+  const db = getDb();
+  const read = await readMenuUpsert(request, db);
+  if ("response" in read) return read.response;
+  const { input } = read;
+
+  const id = crypto.randomUUID();
+  await db.transaction(async (tx) => {
+    await tx.insert(menus).values({ id, name: input.name, price: input.price, servingLabel: input.servingLabel });
+    await tx.insert(recipeLines).values(
+      input.recipe.map((line, position) => ({
+        menuId: id,
+        ingredientId: line.ingredientId,
+        amount: line.amount,
+        unit: line.unit,
+        position,
+      })),
+    );
+  });
+
+  const menu: Menu = { id, name: input.name, price: input.price, servingLabel: input.servingLabel, recipe: input.recipe };
+  return Response.json(MenuResponseSchema.parse({ menu }), { status: 201 });
 }

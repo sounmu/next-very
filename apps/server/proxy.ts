@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 // Next 16 renamed middleware.ts to proxy.ts. CORS for every /api/* route.
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "content-type",
   "Access-Control-Max-Age": "86400",
 };
