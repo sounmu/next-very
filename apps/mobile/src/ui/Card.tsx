@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
-import { colors, radius, shadow, space, typography } from './tokens';
+import { colors, glass, radius, shadow, space, typography } from './tokens';
 
 export type CardProps = {
   children: ReactNode;
@@ -23,8 +23,8 @@ export function Card({ children, variant = 'default', title, style }: CardProps)
 
 const styles = StyleSheet.create({
   base: { borderRadius: radius.lg, padding: space.s5 },
-  default: { backgroundColor: colors.surface, ...shadow.card },
-  emphasis: { backgroundColor: colors.primary50 },
-  highlight: { backgroundColor: colors.accent, borderRadius: radius.xl },
+  default: { ...glass, ...shadow.card },
+  emphasis: { backgroundColor: colors.primary50, borderWidth: 1, borderColor: colors.glassBorder },
+  highlight: { backgroundColor: colors.accent, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.glassBorder, ...shadow.card },
   title: { ...typography.cardTitle, marginBottom: space.s2 },
 });

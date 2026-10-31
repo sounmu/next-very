@@ -6,39 +6,45 @@ import { Platform, StyleSheet, type TextStyle, type ViewStyle } from 'react-nati
 
 export const colors = {
   /** accent.deep */
-  primary: '#1E4E8C',
-  primary600: '#173D6E',
+  primary: '#2563EB',
+  primary600: '#1D4ED8',
   /** bg.blue */
-  primary50: '#E8F0FA',
+  primary50: '#EEF4FF',
   /** bg.highlight: one key cost card per screen, black text only */
-  accent: '#F3F86B',
+  accent: '#DCE8FF',
   /** state.warningBg */
   accent50: '#FFF3D6',
   /** state.success; a cost going down */
-  profit: '#1E4E8C',
-  profit50: '#E8F0FA',
+  profit: '#2563EB',
+  profit50: '#EEF4FF',
   /** state.error; a cost going up */
   loss: '#B42318',
   loss50: '#FEF0EE',
   /** state.warning */
   warn: '#805300',
   /** text.primary */
-  text: '#171A18',
+  text: '#191F28',
   /** text.secondary */
-  text2: '#626A65',
+  text2: '#5B6573',
   /** text.placeholder */
-  text3: '#727A74',
+  text3: '#6E7887',
   /** border.default */
-  line: '#DDE2DD',
+  line: '#E3E7EE',
   /** bg.canvas */
-  bg: '#F3F4F2',
+  bg: '#F2F5FA',
   /** bg.surface */
   surface: '#FFFFFF',
   /** bg.subtle */
-  subtle: '#F7F8F6',
+  subtle: '#F7F9FC',
+  /** bg.glass: translucent card, tab bar and bottom bar over the canvas glow */
+  glass: 'rgba(255,255,255,0.68)',
+  glassBorder: 'rgba(255,255,255,0.9)',
+  /** canvas glow behind the glass (Screen backdrop) */
+  glow: '#8DB4FF',
+  glow2: '#C7B8FF',
   /** action.primary */
-  action: '#171A18',
-  actionPressed: '#303731',
+  action: '#2563EB',
+  actionPressed: '#1D4ED8',
   /** accent.market: lines only (3.1:1 on white) */
   market: '#8593A6',
   disabledBg: '#E3E6E2',
@@ -84,9 +90,9 @@ export const radius = {
   full: 999,
 } as const;
 
-/** DESIGN.md 7: cards have no shadow; only floating sheets and the floating add button do. */
+/** DESIGN.md 7: glass cards get a soft blue shadow; sheets and the floating add button float higher. */
 export const shadow = {
-  card: {},
+  card: { boxShadow: '0 6px 24px rgba(37,99,235,0.08)' },
   sheet: { boxShadow: '0 -8px 24px rgba(23,26,24,0.08)' },
   fab: { boxShadow: '0 4px 12px rgba(23,26,24,0.16)' },
 } satisfies Record<string, ViewStyle>;
@@ -117,6 +123,20 @@ export const iconSize = {
 export const iconStroke = 1.75;
 
 export const lineWidth = 1;
+
+/**
+ * Frosted glass (DESIGN.md 7). Web blurs what is behind; native keeps the translucent fill.
+ * backdropFilter is a web-only CSS property that react-native-web passes through.
+ */
+export const glass: ViewStyle = {
+  backgroundColor: colors.glass,
+  borderWidth: lineWidth,
+  borderColor: colors.glassBorder,
+  ...Platform.select<ViewStyle>({
+    web: { backdropFilter: 'blur(18px) saturate(160%)' } as ViewStyle,
+    default: {},
+  }),
+};
 
 export const opacity = {
   pressed: 0.85,

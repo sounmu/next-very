@@ -3,7 +3,7 @@ import type { ColorValue } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
-import { colors, control, fontSize, iconSize, iconStroke, lineWidth, space } from '@/ui';
+import { colors, control, fontSize, glass, iconSize, iconStroke, lineWidth, space } from '@/ui';
 
 type IconProps = { color: ColorValue };
 
@@ -40,7 +40,8 @@ export default function TabsLayout() {
           height: control.tabBarHeight + insets.bottom,
           paddingTop: space.s1,
           paddingBottom: insets.bottom,
-          backgroundColor: colors.surface,
+          ...glass,
+          borderWidth: 0,
           borderTopWidth: lineWidth,
           borderTopColor: colors.line,
         },
