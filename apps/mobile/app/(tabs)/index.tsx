@@ -27,9 +27,7 @@ import {
   space,
   typography,
 } from '@/ui';
-import { useSession } from '@/session/SessionProvider';
 import { MyPageButton } from '@/session/MyPageButton';
-import { StoreHome } from '@/session/StoreHome';
 
 type ResetState = 'idle' | 'confirm' | 'done';
 
@@ -39,7 +37,7 @@ function errorText(error: unknown) {
   return error instanceof ApiError ? error.message : '잠시 후 다시 시도해 주세요';
 }
 
-function ShowcaseHome() {
+export default function HomeScreen() {
   const dashboard = useDashboard();
   const ingredients = useIngredients();
   const compare = useCompareList();
@@ -348,8 +346,3 @@ const styles = StyleSheet.create({
   changeText: { ...typography.bodyStrong, color: colors.primary },
   errorText: { ...typography.caption, color: colors.loss },
 });
-
-export default function HomeScreen() {
-  const { mode } = useSession();
-  return mode === 'demo' ? <StoreHome /> : <ShowcaseHome />;
-}

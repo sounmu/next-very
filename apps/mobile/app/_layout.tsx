@@ -27,19 +27,15 @@ export default function RootLayout() {
 }
 
 /**
- * Signed out: login and signup. A demo store without setup: onboarding only.
- * The showcase (한끼식당 server data) and a set-up demo store share the tabs;
- * each keeps its own detail screens so a new store never opens 한끼식당 data.
+ * Signed out: login and signup. Signed in: the showcase (한끼식당 server data) tabs and detail screens.
+ * Typing an address directly does not open the other side.
  */
 function RootNavigator() {
-  const { loading, mode, store } = useSession();
+  const { loading, mode } = useSession();
   if (loading) return null;
 
   const signedOut = mode === null;
-  const needsSetup = mode === 'demo' && store === null;
-  const showcase = mode === 'showcase';
-  const storeReady = mode === 'demo' && store !== null;
-  const entry = signedOut ? '/login' : needsSetup ? '/onboarding' : '/';
+  const entry = signedOut ? '/login' : '/';
 
   return (
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
@@ -47,31 +43,23 @@ function RootNavigator() {
         <Stack.Screen name="login" />
         <Stack.Screen name="signup" />
       </Stack.Protected>
-      <Stack.Protected guard={needsSetup} redirectTo={entry}>
-        <Stack.Screen name="onboarding" />
-      </Stack.Protected>
-      <Stack.Protected guard={showcase || storeReady} redirectTo={entry}>
+      <Stack.Protected guard={!signedOut} redirectTo={entry}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="mypage" />
-        <Stack.Protected guard={storeReady} redirectTo="/">
-          <Stack.Screen name="store-menu/[id]" />
-        </Stack.Protected>
-        <Stack.Protected guard={showcase} redirectTo="/">
-          <Stack.Screen name="compare/[ingredientId]" />
-          <Stack.Screen name="ingredients/index" />
-          <Stack.Screen name="ingredients/[id]" />
-          <Stack.Screen name="menus/index" />
-          <Stack.Screen name="menus/[id]" />
-          <Stack.Screen name="purchases/new" />
-          <Stack.Screen name="purchases/[id]" />
-          <Stack.Screen name="recipe/[menuId]" />
-          <Stack.Screen name="records/upload" />
-          <Stack.Screen name="records/[invoiceId]/review" />
-          <Stack.Screen name="records/[invoiceId]/done" />
-          <Stack.Screen name="shop/cart" />
-          <Stack.Screen name="shop/orders/index" />
-          <Stack.Screen name="shop/orders/[id]" />
-        </Stack.Protected>
+        <Stack.Screen name="compare/[ingredientId]" />
+        <Stack.Screen name="ingredients/index" />
+        <Stack.Screen name="ingredients/[id]" />
+        <Stack.Screen name="menus/index" />
+        <Stack.Screen name="menus/[id]" />
+        <Stack.Screen name="purchases/new" />
+        <Stack.Screen name="purchases/[id]" />
+        <Stack.Screen name="recipe/[menuId]" />
+        <Stack.Screen name="records/upload" />
+        <Stack.Screen name="records/[invoiceId]/review" />
+        <Stack.Screen name="records/[invoiceId]/done" />
+        <Stack.Screen name="shop/cart" />
+        <Stack.Screen name="shop/orders/index" />
+        <Stack.Screen name="shop/orders/[id]" />
       </Stack.Protected>
     </Stack>
   );

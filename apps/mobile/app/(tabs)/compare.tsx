@@ -6,8 +6,6 @@ import { StyleSheet, Text } from 'react-native';
 
 import { useCompareList } from '@/api/compare';
 import { Card, Header, ListRow, Notice, Screen, StateView, TextField, colors, typography } from '@/ui';
-import { useSession } from '@/session/SessionProvider';
-import { NewStoreEmpty } from '@/session/NewStoreEmpty';
 
 function matches(item: CompareListItem, query: string): boolean {
   const q = query.trim().toLowerCase();
@@ -32,7 +30,7 @@ function IngredientRow({ item, divider }: { item: CompareListItem; divider: bool
 }
 
 /** 비교 tab (DESIGN.md 10.5): ingredients with a recommendation first, one row each. */
-function ShowcaseCompare() {
+export default function CompareScreen() {
   const [query, setQuery] = useState('');
   const { data, isPending, isError, error, refetch } = useCompareList();
 
@@ -85,8 +83,3 @@ const styles = StyleSheet.create({
   list: { paddingVertical: 0 },
   none: { ...typography.secondary, color: colors.text2 },
 });
-
-export default function CompareScreen() {
-  const { mode } = useSession();
-  return mode === 'demo' ? <NewStoreEmpty title="구매가 비교" emptyTitle="비교할 재료가 아직 없어요" message="구매 기록을 등록하면 재료별로 공급처 가격을 비교할 수 있어요" /> : <ShowcaseCompare />;
-}

@@ -22,15 +22,13 @@ import {
   space,
   typography,
 } from '@/ui';
-import { useSession } from '@/session/SessionProvider';
-import { NewStoreEmpty } from '@/session/NewStoreEmpty';
 
 function subtitleOf(purchase: PurchaseListItem): string {
   const base = `${formatQty(purchase.packSize, purchase.packUnit)} × ${purchase.quantity}개 · ${purchase.supplierName}`;
   return purchase.source === 'order' ? `${base} · 주문에서 반영` : base;
 }
 
-function ShowcaseRecords() {
+export default function RecordsScreen() {
   const [query, setQuery] = useState('');
   const q = useDeferredValue(query.trim());
   const purchases = usePurchases({ q: q || undefined });
@@ -144,8 +142,3 @@ const styles = StyleSheet.create({
   listCard: { paddingVertical: 0 },
   group: { gap: space.s2 },
 });
-
-export default function RecordsScreen() {
-  const { mode } = useSession();
-  return mode === 'demo' ? <NewStoreEmpty title="구매 기록" emptyTitle="아직 구매 기록이 없어요" message="새 가게의 구매 기록은 서버 연결 뒤에 저장할 수 있어요" /> : <ShowcaseRecords />;
-}

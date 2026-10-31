@@ -7,5 +7,3 @@ export * from './order';
 export * from './format';
 export * from './seed';
 export * from './schemas';
-export * from './store';
-export * from './storeStock';
