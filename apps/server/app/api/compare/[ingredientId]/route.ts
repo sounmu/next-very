@@ -1,6 +1,7 @@
 import { compareOffers } from "@marginlog/core";
 import { CompareDetailQuerySchema, CompareDetailResponseSchema } from "@marginlog/core/src/api/compare";
 import { getDb } from "../../../../db/client";
+import { requireStore } from "../../../../lib/auth";
 import { loadState } from "../../../../lib/repo";
 import { defaultNeededBaseQty, latestOf } from "../need";
 
@@ -8,6 +9,9 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: Request, { params }: { params: Promise<{ ingredientId: string }> }) {
   const { ingredientId } = await params;
+  const db = getDb();
+  const auth = await requireStore(db, request);
+  if (auth instanceof Response) return auth;
 
   const rawNeed = new URL(request.url).searchParams.get("need");
   const query = CompareDetailQuerySchema.safeParse({ need: rawNeed ?? undefined });
@@ -15,7 +19,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ ingr
     return Response.json({ error: "필요 수량은 0보다 큰 숫자여야 해요" }, { status: 400 });
   }
 
-  const state = await loadState(getDb());
+  const state = await loadState(db, auth.storeId);
   const ingredient = state.ingredients.find((i) => i.id === ingredientId);
   if (!ingredient) return Response.json({ error: "재료를 찾을 수 없어요" }, { status: 404 });
 

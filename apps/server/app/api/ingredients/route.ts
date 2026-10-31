@@ -4,17 +4,21 @@ import {
   IngredientResponseSchema,
   IngredientsResponseSchema,
 } from "@marginlog/core/src/api/ingredients";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { getDb } from "../../../db/client";
 import { ingredients } from "../../../db/schema";
+import { requireStore } from "../../../lib/auth";
 import { loadState } from "../../../lib/repo";
 import { fail, readBody } from "./shared";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
-  const state = await loadState(getDb());
+export async function GET(request: Request) {
+  const db = getDb();
+  const auth = await requireStore(db, request);
+  if (auth instanceof Response) return auth;
+  const state = await loadState(db, auth.storeId);
   const list = state.ingredients
     .map((ingredient) => {
       const { current } = currentAndPrevious(ingredient, state.purchases);
@@ -33,16 +37,22 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const db = getDb();
+  const auth = await requireStore(db, request);
+  if (auth instanceof Response) return auth;
+
   const parsed = await readBody(request, IngredientCreateSchema);
   if ("response" in parsed) return parsed.response;
   const { name, baseUnit, spec } = parsed.data;
 
-  const db = getDb();
-  const existing = await db.select({ id: ingredients.id }).from(ingredients).where(eq(ingredients.name, name));
+  const existing = await db
+    .select({ id: ingredients.id })
+    .from(ingredients)
+    .where(and(eq(ingredients.storeId, auth.storeId), eq(ingredients.name, name)));
   if (existing.length > 0) return fail("이미 있는 식재료예요", 409);
 
   const id = `ingredient-${randomUUID()}`;
-  await db.insert(ingredients).values({ id, name, baseUnit, spec: spec ?? null });
+  await db.insert(ingredients).values({ id, storeId: auth.storeId, name, baseUnit, spec: spec ?? null });
   const body = IngredientResponseSchema.parse({ ingredient: { id, name, baseUnit, spec, aliases: [] } });
   return Response.json(body, { status: 201 });
 }

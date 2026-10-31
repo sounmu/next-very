@@ -1,6 +1,7 @@
 import { computeMenuCost, consumption, costAlert, monthSpend, nextSettleDate, priceChanges, soldByMenu } from "@marginlog/core";
 import { DashboardResponseSchema } from "@marginlog/core/src/api/dashboard";
 import { getDb } from "../../../db/client";
+import { requireStore } from "../../../lib/auth";
 import { loadInvoices, loadState } from "../../../lib/repo";
 
 export const dynamic = "force-dynamic";
@@ -14,11 +15,13 @@ function seoulMonth(now: Date): string {
 /** Today in Asia/Seoul as YYYY-MM-DD ("en-CA" formats dates that way). */
 const todaySeoul = (): string => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" }).format(new Date());
 
-export async function GET() {
+export async function GET(request: Request) {
   const db = getDb();
+  const auth = await requireStore(db, request);
+  if (auth instanceof Response) return auth;
   // Queries run one after another: see the pooler note in lib/repo.ts.
-  const state = await loadState(db);
-  const invoices = await loadInvoices(db);
+  const state = await loadState(db, auth.storeId);
+  const invoices = await loadInvoices(db, auth.storeId);
   const used = consumption(state.menus, state.ingredients, state.sales);
   const sold = soldByMenu(state.sales);
 
