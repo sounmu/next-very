@@ -4,34 +4,36 @@
 
 ## 현재 상태
 
-- 제품 방향이 "메뉴 원가 개선"으로 피봇했다. 기준은 Figma 섹션 "MVP 와이어프레임 · 메뉴 원가 개선"(node 39:353)과 이를 옮긴 `docs/PRODUCT.md`다.
-- `design/` 아래 HTML 화면 14개는 피봇 전 흐름(장부, 순수익, 익명 비교, 공급처)이다. 새 앱에서는 색, 글꼴, 카드 스타일 참고용으로만 쓴다.
-- 04는 와이어프레임의 시뮬레이션 대신 실제 구매처 등록 화면이다(`docs/PRODUCT.md` "와이어프레임과 다른 점").
-- main에 기반이 있다: 공통 코드(`packages/core`), 서버 뼈대(`apps/server`), 앱 뼈대(`apps/mobile`, Expo).
-- 서버는 Next.js 16 App Router(API 라우트만) + Drizzle ORM + Postgres다. Supabase는 나중에 연결하고, 그전까지 로컬 DB는 쓰지 않는다.
-- 기능은 워크트리 세 개에서 만든다: `feat/menu`(`../next-very-menu`, 01·02·08), `feat/supplier`(`../next-very-supplier`, 03·04), `feat/invoice`(`../next-very-invoice`, 05·06·07 + OCR). 스택, 구조, 명령은 `docs/TECH.md`, 작업 계획은 `docs/TEAM.md`에 정했다. 코드를 바꾸면 이 문서와 TECH.md를 같이 갱신한다.
+- 제품은 v2다. 핵심 가치는 "구매 기록을 원가 데이터로, 원가 데이터를 더 나은 구매로."이고, 흐름은 구매 기록 -> 재료 단가 -> 메뉴 원가 -> 공급처 비교 -> 데모 구매다. 화면과 숫자는 `docs/PRODUCT.md`가 기준이다.
+- 하단 탭은 홈 / 비교 / 기록 / 장보기 네 개다. 식재료, 메뉴 원가, 레시피는 홈에서 들어가는 하위 화면이다.
+- 단위는 g, kg, mL, L, 개이고 기본 단위는 g, mL, 개다. g과 mL은 서로 바꾸지 않는다. 메뉴 원가는 확인된 최근 구매 단가로만 계산하고, 단가가 없거나 단위가 맞지 않는 재료는 추정하지 않고 표시만 한다.
+- 실제와 데모를 화면에 구분한다. OCR은 서버에 `GEMINI_API_KEY`가 있을 때만 실제이고, 없으면 "데모" 라벨이 붙은 고정 추출 결과를 쓴다. 공급처 상품, 가격, 주문은 데모다. 결제, 외부 주문 전송, 수수료 정산은 없다. 입고 확인은 실제 구매 기록을 만들고, 같은 주문 줄은 두 번 기록되지 않는다.
+- 서버는 Next.js 16 App Router(API 라우트만) + Drizzle ORM + postgres.js + Supabase Postgres다. 앱은 Expo SDK 58 + Expo Router다. 공통 코드는 `packages/core`다.
+- 비밀값(`DATABASE_URL`, `GEMINI_API_KEY`)은 `apps/server/.env.local`에만 둔다. 출력하거나 복사하거나 커밋하지 않는다.
+- 작업 방식은 `docs/TEAM.md`에 있다. 코드를 바꾸면 이 문서와 `docs/TECH.md`를 같이 갱신한다.
 
 ## 단일 출처
 
-- `docs/PRODUCT.md`: 새 MVP의 화면 01~08, 흐름, 예외 상태, 시연 데이터. 앱 화면과 숫자의 기준이다.
-- `docs/TECH.md`: 스택, 폴더 구조, 데이터 타입 계약, 원가 계산 규칙, API, OCR 방식.
-- `docs/TEAM.md`: 작업 계획. main 기반, 워크트리별 화면과 라우트, 공유 파일 규칙, 합치는 순서.
-- `design/SPEC.md`: 피봇 전 목업 14개의 명세. `design/` 화면을 고칠 때만 기준이다.
-- `design/tokens.css`: 색, 글꼴, 간격, 반경, 그림자와 공통 클래스(`.frame`, `.statusbar`, `.appbar`, `.content`, `.card`, `.btn-*`, `.chip-*`, `.row`, `.input`, `.tabbar`, `.sheet`). 화면에서 색이나 크기를 하드코딩하지 말고 토큰을 쓴다.
+- `docs/PRODUCT.md`: v2 흐름, 탭과 화면, 화면별 상태, 계산 규칙, 추천 규칙, 실제와 데모의 구분, 범위 밖, 시연 데이터와 시나리오. 앱 화면과 숫자의 기준이다.
+- `docs/TECH.md`: 스택, 레포 구조, 도메인 계약(타입, 단위, 원가, 비교, 주문), DB 테이블, API, OCR, 연결 상태, 명령, 비밀값 규칙.
+- `docs/TEAM.md`: 작업 방식. 계약 단계, 기능 영역, 공유 파일 규칙, 커밋 전 확인.
+- `DESIGN.md`: 앱의 시각 명세. 색(포인트 딥 블루 #1E4E8C), 글꼴, 간격, 컴포넌트, 화면 구성, 상태 표시. 앱 화면에서 색이나 크기를 하드코딩하지 말고 `apps/mobile/src/ui/tokens.ts`로 옮긴 이 값을 쓴다.
+- `design/`: 피봇 전 목업 14개(장부, 순수익, 익명 비교, 공급처)와 그 명세 `design/SPEC.md`, 토큰 `design/tokens.css`. v2 앱의 기준이 아니다. `design/` 화면을 고칠 때만 아래 규칙을 따른다.
 
 ## 명령
 
 ```bash
 npm install                                   # 루트, 워크스페이스 전체
 npm run dev -w apps/server                    # http://localhost:8787
-npm run db:push -w apps/server                # DATABASE_URL을 넣은 뒤
-npm run db:seed -w apps/server                # DATABASE_URL을 넣은 뒤
+npm run db:push -w apps/server                # 스키마를 DB에 반영 (.env.local의 DATABASE_URL)
+npm run db:seed -w apps/server                # 시드 넣기
+npm run db:reset -w apps/server               # 모든 테이블을 비우고 시드로 되돌림
 cd apps/mobile && npx expo start              # 앱
-npm test -w packages/core                     # 원가 계산 테스트
+npm test -w packages/core                     # core 테스트 (단위, 원가, 비교, 주문)
 npm run typecheck                             # 전체 타입 검사
 ```
 
-## 화면 작성 규칙
+## 화면 작성 규칙 (`design/` 목업)
 
 - 파일 하나가 화면 하나다: `design/screens/NN-slug.html`, 프레임 390x844.
 - 스타일시트는 `../tokens.css` 하나만 링크하고, 화면 전용 스타일은 파일 안 `<style>`에 둔다.

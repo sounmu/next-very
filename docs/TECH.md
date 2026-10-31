@@ -1,234 +1,345 @@
-# 기술 스택과 구조
+# 기술 스택과 구조 (v2)
 
-전제: 해커톤 심사 시연용이다. 스토어 배포, 로그인, 다중 매장은 없다. 앱은 발표자 휴대폰(Expo Go)에서 돌리고, 서버는 Vercel에 올려 둔다. 데이터(메뉴, 레시피, 구매처, 견적, 매입)와 OCR은 서버가 맡는다.
+전제: 해커톤 심사 시연용이다. 스토어 배포, 로그인, 여러 매장은 없다. 앱은 발표자 휴대폰(Expo Go)에서 돌리고, 서버는 Vercel에 올린다. 데이터와 원가 계산, OCR은 서버가 맡는다. 화면과 숫자는 `docs/PRODUCT.md`, 시각 규칙은 `DESIGN.md`가 기준이다.
 
-## 결정 요약
+## 스택
 
 | 영역 | 선택 |
 |---|---|
-| 앱 | Expo (React Native) + TypeScript + Expo Router |
-| 서버 상태 관리(앱) | TanStack Query |
-| 서버 | Next.js 16 App Router, `apps/server/app/api` 아래 Route Handlers만 (페이지는 한 줄짜리 index 하나) + Zod |
-| DB | Postgres + Drizzle ORM + postgres.js 드라이버, 연결 문자열은 `DATABASE_URL` |
-| 공통 코드 | `packages/core`: 타입, Zod 스키마, 원가 계산 함수, 시드 데이터 (앱과 서버가 같이 씀) |
-| OCR | 비전 LLM 구조화 출력. 기본 Gemini Flash 계열, 비교 후보 Upstage Information Extract |
-| 공공 시세 | 서버 `/api/market` 엔드포인트, 기본은 고정 예시, 여유 있으면 KAMIS Open API |
-| 서버 배포 | Vercel + Supabase(Postgres). 예비로 노트북 `next start` + Cloudflare Tunnel |
-| 테스트 | Vitest, `packages/core`만 |
+| 앱 | Expo SDK 58 + Expo Router + TypeScript, 서버 상태는 TanStack Query |
+| 서버 | Next.js 16 App Router, `apps/server/app/api` 아래 Route Handlers만 쓴다. 요청 검증은 Zod |
+| DB | Supabase Postgres + Drizzle ORM + postgres.js. 연결 문자열은 `DATABASE_URL` 하나 |
+| 공통 코드 | `packages/core`(`@marginlog/core`): 타입, Zod 스키마, 단위 변환, 원가 계산, 비교, 주문 계산, 표시 형식, 시드 |
+| OCR | Gemini 비전 모델 + 응답 JSON 스키마, 키가 없으면 데모 추출 결과 |
+| 테스트 | Vitest, `packages/core` |
 | 레포 | npm workspaces 모노레포 |
 
-## 서버는 왜 Next.js인가
-
-- 담당자가 이미 Next.js를 안다. 새 프레임워크를 배우는 시간이 없다.
-- 앱과 같은 TypeScript라서 타입, Zod 스키마, 원가 계산 함수를 `packages/core` 하나로 공유한다. 앱에서 보이는 숫자와 서버가 저장하는 숫자가 같은 함수에서 나온다.
-- Vercel 배포가 한 단계로 끝난다. 레포를 연결하고 루트 디렉터리를 `apps/server`로 지정하면 된다.
-
-## DB
-
-- Postgres를 Drizzle ORM과 postgres.js로 쓴다. 연결 문자열은 환경변수 `DATABASE_URL` 하나다.
-- Supabase는 마지막에 담당자가 직접 연결한다. 그전까지 코드는 `DATABASE_URL`만 바라보고, 로컬 DB는 띄우지도 테스트하지도 않는다. 원가 계산은 `packages/core` 테스트로 확인한다.
-- Supabase 연결 풀러(transaction 모드)를 쓰면 postgres.js에 `prepare: false`를 준다. `db/client.ts`에서 한 번만 설정한다.
-- 시연용이라 거래명세서 사진도 Postgres에 넣는다. `invoice_images` 테이블의 `bytea` 열에 저장하고, `invoices`는 그 id를 가리킨다. 별도 파일 저장소는 쓰지 않는다.
+앱과 서버가 같은 `packages/core` 함수를 쓴다. 앱이 미리 보여 주는 숫자와 서버가 응답하는 숫자가 같은 코드에서 나온다.
 
 ## 레포 구조
 
 ```
 apps/
-  mobile/                        Expo 앱
-    app/                         Expo Router 화면 (파일 = 화면)
-      _layout.tsx                스택, QueryClientProvider
-      index.tsx                  01 메뉴 목록
-      menu/[menuId].tsx          02 메뉴 원가 상세
-      ingredient/[ingredientId].tsx   03 재료 가격 추세
-      supplier/new.tsx           04 구매처 등록 (?ingredientId=)
-      invoice/new.tsx            05 거래명세서 등록
-      invoice/[invoiceId]/review.tsx  06 추출 결과 확인
-      invoice/[invoiceId]/done.tsx    07 메뉴 원가 갱신
-      recipe/[menuId].tsx        08 메뉴·레시피 등록/수정 (new면 신규)
-    src/api/                     fetch 래퍼와 TanStack Query 훅
-    src/ui/                      tokens.ts(design/tokens.css 값), Card, Button, Row, Notice, Money
-    assets/demo-invoice.jpg      시연용 명세서 사진 (앨범 선택 실패 대비)
-  server/                        Next.js 16 (API 전용)
-    app/layout.tsx               최소 루트 레이아웃
-    app/page.tsx                 한 줄짜리 index ("MarginLog API")
+  mobile/                              Expo 앱
+    app/
+      _layout.tsx                      루트 스택, QueryClientProvider
+      (tabs)/_layout.tsx               하단 탭: 홈 / 비교 / 기록 / 장보기
+      (tabs)/index.tsx                 홈 대시보드
+      (tabs)/compare.tsx               비교할 재료 목록과 추천 요약
+      (tabs)/records.tsx               구매 기록: 업로드, 대기 명세서, 목록, 검색
+      (tabs)/shop.tsx                  장보기: 공급처 상품, 장바구니 진입
+      ingredients/index.tsx            식재료 목록
+      ingredients/[id].tsx             식재료 상세: 단위, 최근 단가, 이력, 별칭
+      menus/index.tsx                  메뉴 목록
+      menus/[id].tsx                   메뉴 원가 상세
+      recipe/[menuId].tsx              레시피 편집 (new면 신규)
+      records/upload.tsx               사진 업로드와 인식 중 상태
+      records/[invoiceId]/review.tsx   인식 결과 확인
+      records/[invoiceId]/done.tsx     저장 완료와 바뀐 원가
+      purchases/new.tsx                구매 기록 직접 입력
+      purchases/[id].tsx               구매 기록 수정
+      compare/[ingredientId].tsx       재료별 공급처 비교와 추천
+      shop/cart.tsx                    장바구니와 주문 확인
+      shop/orders/index.tsx            주문 목록
+      shop/orders/[id].tsx             주문 상세와 입고 확인
+    src/api/                           fetch 래퍼와 TanStack Query 훅
+    src/ui/                            tokens.ts(DESIGN.md 값)와 공통 컴포넌트
+  server/                              Next.js 16 (API 전용)
     app/api/
-      health/route.ts            GET
-      menus/route.ts             GET
-      menus/[id]/route.ts        GET, PUT
-      ingredients/route.ts       GET
-      ingredients/[id]/route.ts  GET
-      market/[ingredientId]/route.ts  GET
-      suppliers/route.ts         GET, POST
-      quotes/route.ts            POST
-      invoices/route.ts          POST
-      invoices/[id]/route.ts     GET
-      invoices/[id]/confirm/route.ts  POST
-      demo/reset/route.ts        POST
-    db/schema.ts                 Drizzle 스키마 (전체 테이블, invoice_images 포함)
-    db/client.ts                 postgres.js 연결 (DATABASE_URL)
-    lib/seed.ts                  packages/core 시드를 DB에 넣는 함수 (/api/demo/reset과 스크립트가 같이 씀)
-    lib/repo.ts                  DB 읽기/쓰기 함수, 라우트는 이것만 부른다
-    lib/ocr/                     extract.ts(모델 호출), validate.ts(검증), aliases.ts(별칭 사전), demo-extract.json
-    scripts/seed.ts              npm run db:seed
-    drizzle.config.ts            drizzle-kit 설정 (DATABASE_URL)
-    .env.example                 DATABASE_URL, OCR_PROVIDER, GEMINI_API_KEY, UPSTAGE_API_KEY, KAMIS_KEY, DEMO_FALLBACK=1 (값 없이 이름만)
+      health/route.ts                  GET
+      dashboard/route.ts               GET
+      purchases/route.ts               GET, POST
+      purchases/[id]/route.ts          PUT, DELETE
+      ingredients/route.ts             GET, POST
+      ingredients/[id]/route.ts        GET, PUT
+      ingredients/[id]/aliases/route.ts  POST
+      menus/route.ts                   GET
+      menus/[id]/route.ts              GET, PUT, DELETE
+      invoices/route.ts                GET, POST
+      invoices/[id]/route.ts           GET
+      invoices/[id]/image/route.ts     GET
+      invoices/[id]/confirm/route.ts   POST
+      compare/route.ts                 GET
+      compare/[ingredientId]/route.ts  GET
+      products/route.ts                GET
+      cart/route.ts                    GET, PUT, DELETE
+      orders/route.ts                  GET, POST
+      orders/[id]/route.ts             GET
+      orders/[id]/receive/route.ts     POST
+      demo/reset/route.ts              POST
+    db/schema.ts                       Drizzle 스키마 (전체 테이블)
+    db/client.ts                       postgres.js 연결, prepare: false
+    lib/repo.ts                        DB 읽기/쓰기. 라우트는 이것만 부른다
+    lib/seed.ts                        core 시드를 DB에 넣는다 (/api/demo/reset과 스크립트가 같이 씀)
+    lib/ocr/                           extract.ts(모델 호출), validate.ts(숫자 검사), aliases.ts(별칭 연결)
+    scripts/seed.ts                    npm run db:seed
+    drizzle.config.ts                  drizzle-kit 설정
+    .env.example                       변수 이름만, 값 없음
 packages/
-  core/
-    src/types.ts                 데이터 타입 (계약)
-    src/schemas.ts               Zod 스키마 (API 요청/응답)
-    src/api/<feature>.ts         기능 브랜치가 추가하는 스키마 (menu, supplier, invoice)
-    src/cost.ts                  원가 계산 순수 함수
-    src/seed.ts                  docs/PRODUCT.md 시연 데이터 그대로
-    src/cost.test.ts
+  core/src/
+    types.ts                           도메인 타입 (계약)
+    units.ts                           Unit, baseOf, toBase
+    cost.ts                            원가 계산, costAlert, priceChanges, previewWithPrice
+    compare.ts                         compareOffers
+    order.ts                           buildOrder
+    format.ts                          unitLabel, formatWon, formatQty, formatUnitPrice, formatDate*
+    schemas.ts                         API 요청/응답 Zod 스키마
+    seed.ts                            docs/PRODUCT.md 시연 데이터 그대로
+    *.test.ts                          Vitest
 ```
 
-## 데이터 계약 (`packages/core/src/types.ts`)
+v1 라우트인 `/api/market`, `/api/quotes`, `/api/suppliers`는 v2 계약에 없다. 시장 참고 지수는 `/api/compare/[ingredientId]` 응답에 들어간다. v1의 견적(Quote)은 v2에서 공급처 상품(SupplierProduct)으로 바뀐다.
 
-main에서 이 타입을 고정한다. 바꾸려면 main에서 고치고 각 워크트리를 rebase한다.
+## 도메인 계약 요약
+
+이름과 필드는 `packages/core/src/types.ts`가 기준이다. 바꾸려면 계약 단계에서 core를 먼저 고친다(`docs/TEAM.md`).
+
+### 단위
 
 ```ts
-type Won = number;          // 정수, 원
-type Grams = number;        // 정수, g
-type WonPerKg = number;     // 정수, 원/kg
+type Unit = 'g' | 'kg' | 'mL' | 'L' | 'ea';   // 'ea'의 화면 표기는 "개"
+type BaseUnit = 'g' | 'mL' | 'ea';
+```
 
-interface Ingredient { id: string; name: string; spec?: string; marketCode?: string }  // marketCode 없으면 '참고 시세 없음'
+- `baseOf(unit)`: g, kg -> 'g'. mL, L -> 'mL'. ea -> 'ea'.
+- 기본 단위 배수: kg 1000, L 1000, 나머지 1.
+- `toBase(value, unit, baseUnit): number | null`. `baseOf(unit) !== baseUnit`이면 null. g과 mL은 서로 바꾸지 않는다.
 
+### 엔티티
+
+```ts
+type Won = number;  // 정수 원
+
+interface Ingredient { id: string; name: string; spec?: string; baseUnit: BaseUnit; marketCode?: string; aliases: string[] }
 interface Supplier { id: string; name: string; phone?: string; memo?: string; createdAt: string }
 
-// 04에서 등록하는 받은 단가. 메뉴 원가에 쓰지 않는다.
-interface Quote {
-  id: string; supplierId: string; ingredientId: string;
-  unitPrice: WonPerKg; packWeightG: Grams; terms?: string; date: string;
-}
-
-// 확인된 매입만 원가에 쓴다.
 interface Purchase {
-  id: string; ingredientId: string; supplierId: string; date: string;
-  packWeightG: Grams; quantity: number; amount: Won;
-  unitPrice: WonPerKg;        // round(amount / (quantity * packWeightG / 1000))
-  status: 'confirmed' | 'pending';
-  invoiceId?: string;
+  id: string; ingredientId: string; supplierId: string; date: string;   // 'YYYY-MM-DD'
+  packSize: number; packUnit: Unit; quantity: number;
+  amount: Won;                          // 줄 합계, 정수
+  status: 'confirmed';
+  source: 'receipt' | 'manual' | 'order';
+  invoiceId?: string; orderLineId?: string; rawName?: string;
 }
 
-interface Invoice {
-  id: string; imageId: string; supplierId?: string;   // imageId: invoice_images.id date?: string;
-  status: 'extracted' | 'confirmed';
-  extraction: ExtractResult;  // OCR 원본 결과
-  isDemo: boolean;            // 폴백 결과면 true
+interface RecipeLine { ingredientId: string; amount: number; unit: Unit }
+interface Menu { id: string; name: string; price: Won; servingLabel: string; recipe: RecipeLine[] }   // '1인분', '1잔'
+
+interface MenuCostLine {
+  ingredientId: string; amount: number; unit: Unit;
+  baseQty: number | null; unitPricePerBase: number | null;
+  priceDate: string | null; supplierId: string | null;
+  cost: Won | null; previousCost: Won | null;
+  issue: null | 'no-price' | 'unit-mismatch';
 }
-
-interface RecipeLine { ingredientId: string; grams: Grams }
-interface Menu { id: string; name: string; price: Won; servings: 1; recipe: RecipeLine[] }
-
 interface MenuCost {
   menuId: string;
-  total: Won | null;          // 매입가 없는 재료가 있으면 null
-  ratio: number | null;       // total / price
-  previousTotal: Won | null;  // 직전 확인 매입가 기준, 이력이 없으면 null
-  lines: { ingredientId: string; grams: Grams; unitPrice: WonPerKg | null; supplierId: string | null;
-           cost: Won | null; previousCost: Won | null }[];
-  missing: string[];          // 매입가 없는 ingredientId
+  total: Won | null;        // 모든 줄에 재료비가 있을 때만
+  partialTotal: Won;        // 재료비가 있는 줄의 합
+  ratio: number | null;     // total / price
+  previousTotal: Won | null;
+  lines: MenuCostLine[];
+  missing: string[];        // no-price ingredientId
+  unitIssues: string[];     // unit-mismatch ingredientId
 }
 ```
 
-## 계산 규칙 (`packages/core/src/cost.ts`)
+- `purchaseBaseQty(p, baseUnit)` = `toBase(packSize, packUnit, baseUnit) * quantity`, 또는 null.
+- `unitPricePerBase(p, baseUnit)` = `amount / baseQty`. 실수 그대로 두고 저장과 계산에서 반올림하지 않는다.
 
-- 재료의 현재 단가 = confirmed 매입 중 날짜가 가장 늦은 것. 직전 단가 = 그다음 것.
-- 1인분 재료비 = round(grams x unitPrice / 1000). 메뉴 원가 = 재료비 합. 원가율 표시는 반올림한 정수 %.
-- `previewWithPrice(menu, purchases, ingredientId, unitPrice)`: 04의 비교 카드용. 새 MenuCost를 돌려줄 뿐 아무것도 저장하지 않는다. 앱이 서버 호출 없이 바로 계산한다.
-- 견적(Quote)은 어떤 계산에도 들어가지 않는다.
+### 원가 규칙 (`cost.ts`)
 
-`cost.test.ts`는 시연 데이터로 3,000 -> 3,200 -> 3,000, 김치찌개 2,700, 계란말이 2,000, 매입가 누락 시 null, 견적이 원가를 바꾸지 않음을 확인한다.
+- 현재 단가: 재료의 기본 단위와 같은 계열인 확인된 구매 중 가장 최근 것(날짜, 그다음 id). 직전 단가는 그 앞의 것. 다른 계열의 구매는 단가 계산에서 뺀다.
+- 줄: `baseQty = toBase(line.amount, line.unit, ingredient.baseUnit)`. null이면 `'unit-mismatch'`, 단가가 없으면 `'no-price'`, 아니면 `cost = Math.round(baseQty * unitPricePerBase)`.
+- `total` = 반올림한 줄 재료비의 합. `previousTotal`은 total이 있고 적어도 한 줄에 직전 단가가 있을 때만 값이 있다. 직전 단가가 없는 줄은 현재 재료비를 쓴다.
+- `ratioPercent(total, price)` = `Math.round(total / price * 100)`.
+- `costAlert(menus, ingredients, purchases)`: `total - previousTotal`이 가장 크게 양수인 메뉴, 그 차이, 현재 단가가 직전보다 높은 ingredientId 목록. 없으면 null.
+- `priceChanges(ingredients, purchases)`: 현재와 직전 단가가 모두 있는 재료마다 `{ ingredientId, previousUnitPrice, currentUnitPrice, changeRate, currentDate, previousDate }`. `changeRate = current / previous - 1`.
+- `previewWithPrice(menu, ingredients, purchases, ingredientId, unitPricePerBase)`: 그 재료의 현재 단가를 바꾼 가정의 MenuCost. `previousTotal`은 실제 현재 total. 아무것도 저장하지 않는다.
+
+### 표시 형식 (`format.ts`)
+
+| 함수 | 예 |
+|---|---|
+| `unitLabel(unit)` | 'ea' -> "개", 나머지는 그대로 |
+| `formatWon(n)` | "1,234원" |
+| `formatQty(value, unit)` | "250mL", "18g", "1.5kg", "2개" |
+| `formatUnitPrice(p, baseUnit)` | g "100g당 1,000원", mL "100mL당 280원", ea "개당 50원". g과 mL은 100단위, 개는 1개 가격을 정수 원으로 반올림 |
+| `formatDateKo('2026-10-28')` | "10월 28일" |
+| `formatDateFull('2026-10-28')` | "2026.10.28" |
+
+### 공급처 비교 (`compare.ts`, 데모 데이터)
+
+```ts
+interface SupplierProduct {
+  id: string; supplierId: string; ingredientId: string; name: string;
+  spec?: string; grade?: string; origin?: string;
+  packSize: number; packUnit: Unit; price: Won;   // 포장당
+  shippingFee: Won; minOrderAmount: Won; deliveryNote?: string; isDemo: boolean;
+}
+interface Offer {
+  product: SupplierProduct; comparable: boolean; reason: null | 'unit' | 'spec';
+  unitPricePerBase: number | null;
+  packs: number;            // Math.ceil(neededBaseQty / packBaseQty), 최소 1
+  itemsTotal: Won;          // packs * price
+  shippingFee: Won; total: Won;   // itemsTotal + shippingFee
+  meetsMinOrder: boolean;   // itemsTotal >= minOrderAmount
+}
+compareOffers(ingredient, products, neededBaseQty): { offers: Offer[]; recommendedId: string | null }
+```
+
+- `comparable` = `baseOf(packUnit) === ingredient.baseUnit` 그리고 (재료에 spec이 없거나 `product.spec === ingredient.spec`). 단위가 다르면 reason `'unit'`, 규격이 다르면 `'spec'`.
+- `recommendedId`: comparable이고 meetsMinOrder인 offer 중 total이 가장 낮은 것. 같으면 unitPricePerBase가 낮은 것, 그다음 id. 없으면 null.
+- 정렬: comparable을 total 순으로 먼저, 나머지를 뒤에.
+
+### 장바구니와 주문 (`order.ts`, 데모)
+
+```ts
+interface CartItem { productId: string; quantity: number }   // 포장 수, 1 이상 정수
+interface OrderLine { id: string; productId: string; supplierId: string; ingredientId: string; name: string;
+                      packSize: number; packUnit: Unit; quantity: number; price: Won; amount: Won }
+interface Order { id: string; status: 'placed' | 'received'; isDemo: true; createdAt: string; receivedAt?: string;
+                  lines: OrderLine[]; itemsTotal: Won; shippingTotal: Won; total: Won }
+```
+
+- `buildOrder(cartItems, products)`: 줄과 합계를 만든다. 배송비는 주문에 들어간 공급처마다 한 번, 그 공급처 상품의 shippingFee 중 최댓값.
+- 입고(`receive`)는 줄마다 Purchase를 하나 만든다. `source: 'order'`, `orderLineId = line.id`, `amount = line.amount`(배송비 제외). `purchases.order_line_id`의 UNIQUE 인덱스가 두 번째 입고의 중복을 막는다.
+- 결제와 외부 전송은 없다. 주문은 DB에만 남는다.
+
+### 명세서 (`Invoice`)
+
+```ts
+interface ExtractItem {
+  rawName: string; packSize: number | null; packUnit: Unit | null;
+  quantity: number; unitPrice: Won;   // 포장당, 인쇄된 그대로
+  amount: Won; confidence: 'high' | 'low'; note?: string;
+}
+interface ExtractResult { supplier: string; date: string; items: ExtractItem[]; total: Won }
+interface Invoice { id: string; hasImage: boolean; supplierId?: string; date?: string;
+                    status: 'extracted' | 'confirmed'; extraction: ExtractResult; isDemo: boolean; createdAt: string }
+```
+
+## DB 테이블
+
+금액은 정수 원(integer). 포장 용량, 수량, 레시피 사용량은 실수(double precision)다. 단가는 저장하지 않고 계산한다.
+
+| 테이블 | 주요 열 | 비고 |
+|---|---|---|
+| `ingredients` | id, name, spec, base_unit, market_code | |
+| `ingredient_aliases` | alias (PK), ingredient_id | 한 별칭은 한 재료에만 |
+| `suppliers` | id, name, phone, memo, created_at | |
+| `purchases` | id, ingredient_id, supplier_id, date, pack_size, pack_unit, quantity, amount, status, source, invoice_id, order_line_id, raw_name | `order_line_id` UNIQUE |
+| `invoices` | id, supplier_id, date, status, extraction(jsonb), is_demo, created_at | |
+| `invoice_images` | invoice_id (PK), mime, data(bytea) | 사진은 Postgres에 둔다. `hasImage`는 이 행의 유무 |
+| `menus` | id, name, price, serving_label | |
+| `recipe_lines` | menu_id, ingredient_id, amount, unit, position | PK (menu_id, ingredient_id) |
+| `market_index` | ingredient_id, week, mine, market | 4주 지수 예시 |
+| `supplier_products` | id, supplier_id, ingredient_id, name, spec, grade, origin, pack_size, pack_unit, price, shipping_fee, min_order_amount, delivery_note, is_demo | 데모 카탈로그 |
+| `cart_items` | product_id (PK), quantity | 매장이 하나라 장바구니도 하나 |
+| `orders` | id, status, is_demo, created_at, received_at, items_total, shipping_total, total | |
+| `order_lines` | id, order_id, product_id, supplier_id, ingredient_id, name, pack_size, pack_unit, quantity, price, amount | |
+
+Supabase transaction pooler(6543)를 쓰므로 postgres.js에 `prepare: false`를 준다. `db/client.ts`에서 한 번만 설정한다.
 
 ## API
 
-모든 경로는 `/api`로 시작한다. 요청과 응답은 `packages/core`의 Zod 스키마로 검증한다. 메뉴 원가는 서버가 `cost.ts`로 계산해서 응답에 넣는다. "브랜치"는 그 라우트를 만드는 곳이다(`docs/TEAM.md`).
+모든 경로는 `/api`로 시작한다. 요청은 `packages/core`의 Zod 스키마로 검증하고, 메뉴 원가와 비교 결과는 서버가 core 함수로 계산해 응답에 넣는다.
 
-| 메서드 | 경로 | 화면 | 브랜치 | 내용 |
-|---|---|---|---|---|
-| GET | `/api/health` | 없음 | main | 서버와 DB 연결 확인 |
-| GET | `/api/menus` | 01, 07 | main | 메뉴 목록 + MenuCost + 원가 상승 알림 + 견적 등록 여부 |
-| POST | `/api/demo/reset` | 숨김 버튼 | main | 시드로 되돌림 |
-| GET | `/api/menus/[id]` | 02 | feat/menu | 메뉴 + MenuCost (재료별) |
-| PUT | `/api/menus/[id]` | 08 | feat/menu | 메뉴, 레시피 저장 (`new`면 생성) |
-| GET | `/api/ingredients` | 08 | feat/menu | 재료 목록 |
-| GET | `/api/ingredients/[id]` | 03, 04 | feat/supplier | 매입 이력, 구매처별 최근 단가, 견적, 이 재료를 쓰는 메뉴 |
-| GET | `/api/market/[ingredientId]` | 03 | feat/supplier | 4주 지수 또는 `{ available: false }` |
-| GET | `/api/suppliers` | 04, 06 | feat/supplier | 구매처 목록 |
-| POST | `/api/suppliers` | 04, 06 | feat/supplier | 구매처 생성 |
-| POST | `/api/quotes` | 04 | feat/supplier | 견적 저장 |
-| POST | `/api/invoices` | 05 | feat/invoice | multipart `image`. invoice_images에 저장 후 OCR 실행, Invoice 반환 |
-| GET | `/api/invoices/[id]` | 06, 07 | feat/invoice | Invoice + 품목별 재료 연결 제안 + 견적 대조 |
-| POST | `/api/invoices/[id]/confirm` | 06 | feat/invoice | 사용자가 고친 품목을 받아 Purchase(confirmed) 생성. 바뀐 메뉴 원가 전후 반환 |
-
-`/api/demo/reset`은 앱의 01 제목을 길게 누르면 부른다. 심사 시연 사이마다 누른다.
+| 메서드 | 경로 | 화면 | 내용 |
+|---|---|---|---|
+| GET | `/api/health` | 없음 | 서버와 DB 연결, OCR 모드(실제/데모) 확인 |
+| GET | `/api/dashboard` | 홈 | 이번 달 구매 합계, 메뉴별 MenuCost와 원가율, costAlert, priceChanges, 확인 대기 명세서 수, 최근 구매 3건 |
+| GET | `/api/purchases` | 기록 | 구매 기록 목록. `?q=`(재료 이름, 별칭, 구매처)와 `?ingredientId=` 검색 |
+| POST | `/api/purchases` | 기록 | 직접 입력한 구매 기록 저장(`source: 'manual'`) |
+| GET | `/api/purchases/[id]` | 구매 기록 수정 | 구매 기록 한 건 |
+| PATCH | `/api/purchases/[id]` | 구매 기록 수정 | 구매 기록 수정 |
+| DELETE | `/api/purchases/[id]` | 구매 기록 수정 | 구매 기록 삭제 |
+| GET | `/api/ingredients` | 식재료 목록, 레시피 편집 | 재료 목록과 현재 단가, 단가 기준일 |
+| POST | `/api/ingredients` | 레시피 편집, 인식 결과 확인 | 재료 추가 |
+| GET | `/api/ingredients/[id]` | 식재료 상세 | 재료, 별칭, 현재와 직전 단가, 구매 이력, 이 재료를 쓰는 메뉴 |
+| PATCH | `/api/ingredients/[id]` | 식재료 상세 | 이름, 규격 수정. 구매 기록이 있으면 base_unit 변경 거부 |
+| POST | `/api/ingredients/[id]/aliases` | 인식 결과 확인, 식재료 상세 | 별칭 추가. 다른 재료가 쓰는 별칭이면 409 |
+| GET | `/api/menus` | 홈, 레시피 편집 | 메뉴 목록과 MenuCost |
+| GET | `/api/menus/[id]` | 메뉴 원가 상세 | 메뉴와 줄별 MenuCost |
+| POST | `/api/menus` | 레시피 편집 | 새 메뉴와 레시피 저장 |
+| PUT | `/api/menus/[id]` | 레시피 편집 | 메뉴와 레시피 수정 |
+| DELETE | `/api/menus/[id]` | 메뉴 원가 상세 | 메뉴 삭제 |
+| GET | `/api/invoices` | 기록 | 명세서 목록. `?status=extracted`로 확인 대기만 |
+| POST | `/api/invoices` | 기록 | multipart `image`. 사진 저장 후 OCR, Invoice 반환 |
+| GET | `/api/invoices/[id]` | 인식 결과 확인 | Invoice, 품목별 재료 연결 제안, 구매처 연결 제안 |
+| GET | `/api/invoices/[id]/image` | 인식 결과 확인 | 원본 사진. 사진이 없으면 404 |
+| POST | `/api/invoices/[id]/confirm` | 인식 결과 확인 | 고친 품목으로 Purchase(`source: 'receipt'`) 생성. 이미 confirmed면 409. 바뀐 메뉴 원가 전후 반환 |
+| GET | `/api/compare` | 비교 | 비교할 수 있는 재료 목록과 재료별 추천 요약 |
+| GET | `/api/compare/[ingredientId]` | 비교 | `?neededQty=&unit=`(기본값 최근 구매량). compareOffers 결과, 내 단가 이력, 시장 참고 지수 |
+| GET | `/api/products` | 장보기 | 공급처 상품 목록. `?ingredientId=` 필터 |
+| GET | `/api/cart` | 장보기 | 장바구니와 buildOrder 미리 계산 |
+| PUT | `/api/cart` | 장보기 | 장바구니 항목 넣기, 수량 바꾸기. quantity 0이면 뺀다 |
+| DELETE | `/api/cart` | 장보기 | 장바구니 비우기 |
+| DELETE | `/api/cart/[productId]` | 장바구니 | 장바구니에서 상품 하나 빼기 |
+| GET | `/api/orders` | 장보기 | 주문 목록 |
+| POST | `/api/orders` | 주문 확인 | 장바구니로 데모 주문 생성, 장바구니 비우기. 아무것도 외부로 보내지 않는다 |
+| GET | `/api/orders/[id]` | 주문 상세 | 주문과 줄 |
+| POST | `/api/orders/[id]/receive` | 주문 상세 | 입고 확인. 줄마다 Purchase(`source: 'order'`). 이미 입고한 주문은 새 기록 없이 기존 상태를 돌려준다 |
+| POST | `/api/demo/reset` | 숨김 버튼 | 모든 테이블을 시드로 되돌림 |
 
 Vercel 함수의 요청 본문 한도는 4.5MB다. 앱이 사진을 긴 변 1600px로 줄여 올리므로 한도 안에 들어간다.
 
 ## OCR
 
-### 추천
+`apps/server/lib/ocr/extract.ts`가 사진 한 장을 받아 `ExtractResult`를 돌려준다.
 
-**기본은 Gemini Flash 계열 비전 모델에 응답 JSON 스키마를 걸어 한 번에 품목 표를 받는다.** 구현 첫날 Upstage Information Extract와 같은 사진 세트로 비교해서, 필드 정확도가 더 높은 쪽으로 정한다. 두 쪽 다 `apps/server/lib/ocr/extract.ts` 안에서 같은 `ExtractResult`를 돌려주게 해서 `OCR_PROVIDER` 환경변수로 바꾼다.
+1. **실제 인식 조건.** 서버에 `GEMINI_API_KEY`가 있으면 Gemini를 부른다. 모델은 `GEMINI_MODEL`로 바꿀 수 있다. 키가 없거나, 호출이 실패하거나, 8초를 넘기면 데모 추출 결과를 돌려주고 `isDemo: true`로 저장한다. 앱은 데모 결과에 "데모 인식 결과"를 보인다.
+2. **좁은 JSON 스키마.** 모델은 `supplier, date, items[{ rawName, packSize|null, packUnit|null, quantity, unitPrice, amount }], total`만 읽는다. packUnit은 `g, kg, mL, L, ea` 중 하나이거나 null이다. 재료 연결, 단위 환산, 단가 계산은 서버 코드가 한다. 숫자는 인쇄된 그대로 옮기고 계산하거나 지어내지 말라고 프롬프트에 적는다.
+3. **서버 숫자 검사(`validate.ts`).** 다음이면 그 품목을 `confidence: 'low'`로 두고 `note`에 이유를 적는다: `quantity x unitPrice != amount`, packSize나 packUnit이 null, 포장 용량이 범위 밖(기본 단위로 1 미만 또는 50,000 초과), 품목 합 != total. 앱은 low 칸을 "확인 필요"로 표시하고 고치기 전에는 저장 버튼을 막는다.
+4. **별칭 연결(`aliases.ts`).** `ingredient_aliases`와 재료 이름으로 rawName을 먼저 맞춘다. 공백과 괄호를 지운 뒤 비교한다. 맞지 않으면 후보만 제안하고 자동 연결하지 않는다.
+5. **사진 줄이기.** 앱과 서버 모두 긴 변 1600px, JPEG 품질 0.8로 줄인다. 서버는 sharp로 회전 정보를 반영한다.
+6. **데모 추출 결과.** 시드의 대기 명세서와 같은 값(한우리축산, 2026-10-31, 돼지고기 앞다리 10kg x 1, 90,000원)이다.
 
-| 후보 | 장점 | 단점 |
-|---|---|---|
-| Gemini Flash 계열 (Google AI Studio 키) | 사진 + 스키마 한 번 호출로 끝, 빠르고 쌈, 손글씨와 기울어진 사진에 강함, 품목명 정규화("돈앞다리" -> "돼지고기 앞다리")까지 프롬프트로 처리 | 숫자를 그럴듯하게 지어낼 수 있음. 아래 검증으로 막는다 |
-| Upstage Information Extract | 한국 회사의 문서 특화 API, 커스텀 JSON 스키마 지원, 무료 크레딧 $10, 심사에서 "한국어 문서 AI" 설명이 쉬움 | 품목명 정규화는 따로 해야 함, 응답이 더 느릴 수 있음 |
-| CLOVA OCR (Document/Template) | 한국어 인식률이 높음 | 거래명세서 양식마다 템플릿을 만들어야 하고 NCP 계정·설정이 무거움. 해커톤 일정에 안 맞음 |
-| GPT/Claude 비전 | 품질 좋음 | Gemini Flash보다 비싸고 느림. 이점이 없음 |
+## 연결 상태
 
-모델 이름과 가격은 자주 바뀐다. 구현 담당자가 시작할 때 AI Studio와 Upstage 콘솔에서 현재 버전을 확인하고 이 문서에 적는다.
-
-### "최적화"는 모델보다 이것이 효과가 크다
-
-OpenCV 전처리(기울기 보정, 이진화)는 일부러 하지 않는다. API 비용은 페이지나 토큰 단위라 전처리로 줄지 않고, 비전 LLM은 기울어진 사진도 잘 읽는다.
-
-1. **스키마를 좁힌다.** 받을 것은 `supplier, date, items[{ rawName, packWeightG|null, packUnit, quantity, unitPrice, amount }], total`뿐이다. 모델은 읽기만 하고, 재료 연결과 kg 환산은 서버 코드가 한다.
-2. **서버에서 숫자를 검증한다.** `quantity x unitPrice == amount`, 품목 합 == total, packWeightG가 없거나 10g~50kg 밖이면 그 칸을 `confidence: 'low'`로 표시한다. 06은 low 칸을 강조하고 고치기 전에 확인 버튼을 막는다.
-3. **재료 연결은 사전으로 한다.** 서버의 별칭 표(`apps/server/lib/ocr/aliases.ts`, `돈앞다리`, `앞다리살`, `돼지 전지` -> `pork-shoulder`)로 먼저 맞추고, 실패하면 모델이 제안한 후보를 보여 주되 자동 연결하지 않는다.
-4. **사진을 줄인다.** 앱에서 긴 변 1600px, JPEG 품질 0.8로 줄여 올린다. 업로드와 추론 시간이 줄고 정확도는 거의 같다.
-5. **평가 세트를 만든다.** 실제 거래명세서 사진 10~20장(직접 출력해 찍은 시연용 포함)에 정답 JSON을 붙이고 `npm run ocr:eval`로 필드 정확도와 응답 시간을 잰다. 모델·프롬프트를 바꿀 때마다 이 숫자로 판단한다.
-6. **시연은 폴백으로 지킨다.** `DEMO_FALLBACK=1`이면 OCR이 실패하거나 8초를 넘길 때 `apps/server/lib/ocr/demo-extract.json`(한우리축산, 11/04, 돼지고기 앞다리 10kg x 1, 90,000원)을 돌려주고 `isDemo: true`로 표시한다.
-
-## 공공 시세
-
-- 기본: 서버 시드에 4주 지수 예시를 넣고 `/api/market/[ingredientId]`가 그대로 돌려준다. 03에 "예시"를 표시한다.
-- 여유가 있으면 KAMIS Open API 키를 받아 품목 코드별 소매가를 조회하고 1시간 캐시한다. 조회 실패 시 예시로 돌아간다.
-
-## 배포와 시연 환경
-
-- 서버: Vercel에 `apps/server`를 올리고 환경변수에 `DATABASE_URL`(Supabase)과 OCR 키를 넣는다. 시연 전날 배포하고 URL을 앱의 `EXPO_PUBLIC_API_URL`에 넣는다.
-- DB: Supabase Postgres. 연결한 뒤 `db:push`로 테이블을 만들고 `db:seed`로 시연 데이터를 넣는다.
-- 예비: 노트북에서 `next build` 후 `next start -p 8787`로 띄우고 `cloudflared tunnel --url http://localhost:8787`로 받은 HTTPS 주소를 쓴다. DB는 같은 Supabase를 쓴다.
-- 앱: `npx expo start --tunnel`로 발표자 휴대폰에서 연다. 휴대폰 핫스팟을 예비 네트워크로 준비한다. 화면은 미러링으로 띄운다.
+| 영역 | 지금 실제 | 데모 | 범위 밖 |
+|---|---|---|---|
+| DB | Supabase Postgres 저장과 조회 | | |
+| OCR | `GEMINI_API_KEY`가 있을 때 Gemini 인식 | 키가 없거나 실패하면 고정 추출 결과 | 다른 OCR 공급자 |
+| 원가 계산 | core 함수로 서버와 앱이 같이 계산 | | g과 mL 환산, 배송비 배분 |
+| 시장 참고 지수 | | 돼지고기 앞다리 4주 예시 | KAMIS 실조회 |
+| 공급처 상품과 가격 | | 시드 카탈로그(`is_demo`) | 공급처 연동 |
+| 주문 | DB에 주문 저장, 입고 시 구매 기록 생성 | 주문 자체는 데모 | 외부 주문 전송 |
+| 결제 | | | 없음 |
+| 수수료 정산 | | | 없음 |
 
 ## 명령
 
 ```bash
 npm install                                   # 루트, 워크스페이스 전체
 npm run dev -w apps/server                    # http://localhost:8787
-npm run db:push -w apps/server                # DATABASE_URL을 넣은 뒤, 스키마를 DB에 반영
-npm run db:seed -w apps/server                # DATABASE_URL을 넣은 뒤, 시드로 초기화
+npm run db:push -w apps/server                # 스키마를 DB에 반영
+npm run db:seed -w apps/server                # 시드 넣기
+npm run db:reset -w apps/server               # 모든 테이블을 비우고 시드로 되돌림
 cd apps/mobile && npx expo start              # 앱
-npm test -w packages/core                     # 원가 계산 테스트 (Vitest)
-npm run typecheck                             # 루트, 워크스페이스 전체 타입 검사
+npm test -w packages/core                     # core 테스트 (Vitest)
+npm run typecheck                             # 워크스페이스 전체 타입 검사
 ```
 
-OCR 평가 세트는 `npm run ocr:eval -w apps/server`로 돌린다. 스크립트 이름은 레포를 만들 때 이대로 정의한다.
+`db:*` 스크립트는 `apps/server/.env.local`의 `DATABASE_URL`을 읽는다.
 
-## 디자인
+## 비밀값
 
-- 화면 구조와 문구는 Figma 와이어프레임을 따르고, 04는 `docs/PRODUCT.md`를 따른다.
-- 색, 글꼴, 간격, 카드 모양은 `design/tokens.css` 값을 `apps/mobile/src/ui/tokens.ts`로 옮겨 쓴다. 화면에서 색을 하드코딩하지 않는다.
-- 와이어프레임의 굵은 테두리 카드(알림, 핵심 숫자)는 강조 카드(`--c-primary-50` 배경)로, 일반 카드는 `.card`로 옮긴다.
-- 원가 증가는 `--c-loss`, 감소는 `--c-profit`.
+- `DATABASE_URL`과 `GEMINI_API_KEY`는 `apps/server/.env.local`에만 둔다. 이 파일은 git에 올리지 않는다.
+- `.env.example`에는 변수 이름만 적는다.
+- 값을 로그, 응답, 문서, 커밋 메시지에 남기지 않는다. 스크립트에서 쓸 때는 `node --env-file=.env.local`이나 기존 npm 스크립트로 읽는다.
+- Vercel에는 프로젝트 환경변수로 넣는다.
+
+## 배포와 시연 환경
+
+- 서버: Vercel에 `apps/server`를 올리고 환경변수에 `DATABASE_URL`과 `GEMINI_API_KEY`를 넣는다. URL은 앱의 `EXPO_PUBLIC_API_URL`에 넣는다.
+- 예비: 노트북에서 `next build` 뒤 `next start -p 8787`, `cloudflared tunnel --url http://localhost:8787`로 받은 HTTPS 주소를 쓴다. DB는 같은 Supabase다.
+- 앱: `npx expo start --tunnel`로 발표자 휴대폰에서 연다. 휴대폰 핫스팟을 예비 네트워크로 둔다.
+- 시연마다 `/api/demo/reset`으로 초기화한다.
 
 ## 참고
 
 - Expo Router: https://docs.expo.dev/versions/latest/sdk/router/
 - Next.js Route Handlers: https://nextjs.org/docs/app/getting-started/route-handlers
 - Drizzle + Supabase: https://orm.drizzle.team/docs/connect-supabase
-- Upstage Information Extract: https://console.upstage.ai/docs/capabilities/extract/universal-extraction
-- Gemini 문서 이해: https://ai.google.dev/gemini-api/docs/document-processing
-- CLOVA OCR: https://www.ncloud.com/product/aiService/ocr
+- Gemini 구조화 출력: https://ai.google.dev/gemini-api/docs/structured-output
