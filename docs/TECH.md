@@ -288,7 +288,7 @@ Vercel 함수의 요청 본문 한도는 4.5MB다. 앱이 사진을 긴 변 1600
 
 `apps/server/lib/ocr/extract.ts`가 사진 한 장을 받아 `ExtractResult`를 돌려준다.
 
-1. **실제 인식 조건.** 서버에 `GEMINI_API_KEY`가 있으면 Gemini를 부른다. 모델은 `GEMINI_MODEL`로 바꿀 수 있다. 키가 없거나, 호출이 실패하거나, 8초를 넘기면 데모 추출 결과를 돌려주고 `isDemo: true`로 저장한다. 앱은 데모 결과에 "데모 인식 결과"를 보인다.
+1. **실제 인식 조건.** 서버에 `GEMINI_API_KEY`가 있으면 Gemini를 부른다. 모델은 `GEMINI_MODEL`로 바꿀 수 있다. 키가 없거나, 호출이 실패하거나, 8초를 넘기면 데모 추출 결과를 돌려주고 `isDemo: true`로 저장한다. 앱 화면에는 데모 여부를 표시하지 않는다.
 2. **좁은 JSON 스키마.** 모델은 `supplier, date, items[{ rawName, packSize|null, packUnit|null, quantity, unitPrice, amount }], total`만 읽는다. packUnit은 `g, kg, mL, L, ea` 중 하나이거나 null이다. 재료 연결, 단위 환산, 단가 계산은 서버 코드가 한다. 숫자는 인쇄된 그대로 옮기고 계산하거나 지어내지 말라고 프롬프트에 적는다.
 3. **서버 숫자 검사(`validate.ts`).** 다음이면 그 품목을 `confidence: 'low'`로 두고 `note`에 이유를 적는다: `quantity x unitPrice != amount`, packSize나 packUnit이 null, 포장 용량이 범위 밖(기본 단위로 1 미만 또는 50,000 초과), 품목 합 != total. 앱은 low 칸을 "확인 필요"로 표시하고 고치기 전에는 저장 버튼을 막는다.
 4. **별칭 연결(`aliases.ts`).** `ingredient_aliases`와 재료 이름으로 rawName을 먼저 맞춘다. 공백과 괄호를 지운 뒤 비교한다. 맞지 않으면 후보만 제안하고 자동 연결하지 않는다.

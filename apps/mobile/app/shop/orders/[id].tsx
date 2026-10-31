@@ -5,7 +5,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { ApiError } from '@/api';
 import { ORDER_STATUS_LABEL, localDate, useOrder, useReceiveOrder } from '@/api/shop';
-import { Button, Card, Chip, DemoNotice, Header, ListRow, Notice, Row, Screen, StateView, colors, space, typography } from '@/ui';
+import { Button, Card, Chip, Header, ListRow, Notice, Row, Screen, StateView, colors, space, typography } from '@/ui';
 
 export default function OrderDetailScreen() {
   const { id = '' } = useLocalSearchParams<{ id: string }>();
@@ -70,11 +70,8 @@ export default function OrderDetailScreen() {
       }
     >
       {header}
-      <DemoNotice>데모 주문 · 공급처에 보내지 않았고 결제도 없어요</DemoNotice>
-
       <View style={styles.statusRow}>
         <Chip label={ORDER_STATUS_LABEL[current.status]} tone={received ? 'info' : 'neutral'} />
-        <Chip label="데모" tone="demo" />
         <Text style={typography.caption}>{formatDateKo(localDate(current.createdAt))} 주문</Text>
       </View>
 

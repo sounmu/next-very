@@ -122,7 +122,6 @@ export default function HomeScreen() {
               subtitle={`${item.date ? formatDateKo(item.date) : '날짜 확인 필요'} · 품목 ${item.itemCount}개`}
               value={
                 <View style={styles.chips}>
-                  {item.isDemo ? <Chip label="데모" tone="demo" /> : null}
                   {item.issueCount > 0 ? <Chip label={`확인 필요 ${item.issueCount}건`} tone="warning" /> : <Chip label="확인 대기" tone="info" />}
                 </View>
               }

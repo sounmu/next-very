@@ -36,7 +36,7 @@ function monthKey(filter: MonthFilter, today = new Date()): string | undefined {
 
 function subtitleOf(purchase: PurchaseListItem): string {
   const base = `${formatQty(purchase.packSize, purchase.packUnit)} × ${purchase.quantity}개 · ${purchase.supplierName}`;
-  return purchase.source === 'order' ? `${base} · 데모 주문에서 반영` : base;
+  return purchase.source === 'order' ? `${base} · 주문에서 반영` : base;
 }
 
 export default function RecordsScreen() {
@@ -99,7 +99,6 @@ export default function RecordsScreen() {
                 )}`}
                 value={
                   <View style={styles.chips}>
-                    {invoice.isDemo ? <Chip label="데모" tone="demo" /> : null}
                     <Chip label="확인 필요" tone="warning" />
                   </View>
                 }

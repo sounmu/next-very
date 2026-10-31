@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { ORDER_STATUS_LABEL, localDate, useOrders } from '@/api/shop';
-import { Card, Chip, DemoNotice, Header, ListRow, Screen, StateView, space, typography } from '@/ui';
+import { Card, Chip, Header, ListRow, Screen, StateView, space, typography } from '@/ui';
 
 export default function OrdersScreen() {
   const orders = useOrders();
@@ -31,12 +31,11 @@ export default function OrdersScreen() {
   return (
     <Screen>
       {header}
-      <DemoNotice>데모 주문이에요. 공급처에 보내지 않고 결제도 없어요</DemoNotice>
       {list.length === 0 ? (
         <StateView
           kind="empty"
-          title="아직 데모 주문이 없어요"
-          message="장보기에서 상품을 담고 데모 주문을 넣어 보세요"
+          title="아직 주문이 없어요"
+          message="장보기에서 상품을 담고 주문을 넣어 보세요"
           actionLabel="장보기로 가기"
           onAction={() => router.navigate('/shop')}
         />
@@ -49,7 +48,6 @@ export default function OrdersScreen() {
               <View key={order.id}>
                 <View style={styles.chips}>
                   <Chip label={ORDER_STATUS_LABEL[order.status]} tone={order.status === 'received' ? 'info' : 'neutral'} />
-                  <Chip label="데모" tone="demo" />
                 </View>
                 <ListRow
                   title={title}

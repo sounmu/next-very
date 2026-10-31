@@ -10,7 +10,6 @@ import {
   Button,
   Card,
   Chip,
-  DemoNotice,
   Header,
   Notice,
   Screen,
@@ -85,11 +84,10 @@ export default function ShopScreen() {
           </View>
         }
       />
-      <DemoNotice>데모 상품이에요. 실제 주문·결제는 되지 않아요</DemoNotice>
       <TextField label="상품 검색" value={query} onChangeText={setQuery} placeholder="상품명, 재료, 공급처" />
 
       {products.isPending ? (
-        <StateView kind="loading" title="데모 상품을 불러오고 있어요" />
+        <StateView kind="loading" title="상품을 불러오고 있어요" />
       ) : products.isError ? (
         <StateView
           kind="error"
@@ -101,7 +99,7 @@ export default function ShopScreen() {
       ) : sorted.length === 0 ? (
         <StateView
           kind="empty"
-          title="등록된 데모 상품이 없어요"
+          title="등록된 상품이 없어요"
           message="공급처 비교에서 재료별 구매가를 먼저 확인해 보세요"
           actionLabel="비교 보기"
           onAction={() => router.push('/compare')}
@@ -202,7 +200,6 @@ function ProductCard({ product, substitute, inCart }: { product: ShopProduct; su
         <Text style={[typography.bodyStrong, styles.grow]} numberOfLines={2}>
           {product.name}
         </Text>
-        <Chip label="데모" tone="demo" />
       </View>
       {specLine || substitute ? (
         <View style={styles.specRow}>

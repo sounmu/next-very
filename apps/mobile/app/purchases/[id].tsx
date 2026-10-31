@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { StyleSheet, Text } from 'react-native';
 
 import { useDeletePurchase, usePurchase, useUpdatePurchase } from '@/api/records';
-import { Button, Card, Chip, Header, Screen, Sheet, StateView, colors, space, typography } from '@/ui';
+import { Button, Card, Header, Screen, Sheet, StateView, colors, space, typography } from '@/ui';
 
 import { PurchaseForm } from './new';
 
@@ -40,8 +40,7 @@ export default function PurchaseEditScreen() {
         banner={
           purchase.source === 'order' ? (
             <Card variant="emphasis" style={styles.banner}>
-              <Chip label="데모" tone="demo" />
-              <Text style={typography.secondary}>데모 주문에서 반영된 기록이에요</Text>
+              <Text style={typography.secondary}>주문에서 반영된 기록이에요</Text>
             </Card>
           ) : null
         }

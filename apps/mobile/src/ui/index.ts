@@ -13,5 +13,4 @@ export { SegmentedControl, type SegmentedControlProps, type SegmentOption } from
 export { SectionHeader, type SectionHeaderProps } from './SectionHeader';
 export { ListRow, type ListRowProps } from './ListRow';
 export { StateView, type StateViewProps } from './StateView';
-export { DemoNotice, type DemoNoticeProps } from './DemoNotice';
 export { Sheet, type SheetProps } from './Sheet';

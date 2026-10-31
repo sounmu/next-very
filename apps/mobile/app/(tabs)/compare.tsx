@@ -8,8 +8,6 @@ import Svg, { Path } from 'react-native-svg';
 import { useCompareList } from '@/api/compare';
 import {
   Card,
-  Chip,
-  DemoNotice,
   Header,
   Notice,
   Screen,
@@ -112,8 +110,7 @@ export default function CompareScreen() {
 
   return (
     <Screen>
-      <Header title="구매가 비교" right={<Chip label="데모" tone="demo" />} />
-      <DemoNotice>공급처 상품과 가격은 데모 데이터예요</DemoNotice>
+      <Header title="구매가 비교" />
       <TextField label="재료 검색" value={query} onChangeText={setQuery} placeholder="예: 우유, 돼지고기" />
       {body}
       {!isPending && !isError && data.items.length > 0 ? (

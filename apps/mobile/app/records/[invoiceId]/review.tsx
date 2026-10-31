@@ -10,7 +10,6 @@ import {
   Button,
   Card,
   Chip,
-  DemoNotice,
   Header,
   MoneyField,
   Screen,
@@ -263,8 +262,6 @@ function ReviewForm({ detail, header }: { detail: InvoiceDetailResponse; header:
       }
     >
       {header(dirty ? () => setLeaveOpen(true) : undefined)}
-
-      {invoice.isDemo ? <DemoNotice>데모 인식 결과 · 실제 사진을 읽지 않았어요</DemoNotice> : null}
 
       <Card style={styles.gap}>
         {invoice.hasImage ? (

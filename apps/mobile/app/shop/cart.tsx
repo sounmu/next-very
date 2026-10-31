@@ -9,7 +9,6 @@ import {
   Button,
   Card,
   Chip,
-  DemoNotice,
   Header,
   Notice,
   Row,
@@ -87,7 +86,7 @@ export default function CartScreen() {
         <StateView
           kind="empty"
           title="장바구니가 비어 있어요"
-          message="장보기에서 데모 상품을 담아 보세요"
+          message="장보기에서 상품을 담아 보세요"
           actionLabel="장보기로 가기"
           onAction={() => router.navigate('/shop')}
         />
@@ -106,21 +105,18 @@ export default function CartScreen() {
       actions={
         <>
           {placeOrder.isError ? <Text style={styles.error}>주문하지 못했어요. {placeOrder.error.message}</Text> : null}
-          <Button label="데모 주문하기" onPress={order} loading={placeOrder.isPending} />
+          <Button label="주문하기" onPress={order} loading={placeOrder.isPending} />
           <Notice align="center">결제하지 않고 공급처에 보내지 않아요</Notice>
         </>
       }
     >
       {header}
-      <DemoNotice>데모 주문 · 실제 결제 없음</DemoNotice>
-
       {groups.map((group) => (
         <Card key={group.supplierId} style={styles.group}>
           <View style={styles.groupHead}>
             <Text style={[typography.sectionTitle, styles.grow]} numberOfLines={1}>
               {group.supplierName}
             </Text>
-            <Chip label="데모" tone="demo" />
           </View>
           {group.items.map((item, index) => (
             <CartLine key={item.productId} item={item} divider={index < group.items.length - 1} />
@@ -147,7 +143,6 @@ export default function CartScreen() {
           <Text style={typography.bodyStrong}>총 결제 예정 금액</Text>
           <Text style={typography.amountLg}>{formatWon(preview.total)}</Text>
         </View>
-        <Text style={typography.caption}>데모 주문 · 실제 결제 없음</Text>
       </Card>
     </Screen>
   );

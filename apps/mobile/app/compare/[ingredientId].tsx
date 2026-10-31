@@ -10,7 +10,6 @@ import {
   Button,
   Card,
   Chip,
-  DemoNotice,
   Header,
   Notice,
   Row,
@@ -52,7 +51,6 @@ function SupplierOfferCard({ offer, baseUnit, recommended, added, adding, onAdd 
     <Card variant={recommended ? 'emphasis' : 'default'} style={styles.offer}>
       <View style={styles.chips}>
         {recommended ? <Chip label="추천" tone="info" /> : null}
-        <Chip label="데모" tone="demo" />
         {offer.comparable && !offer.meetsMinOrder ? (
           <Chip label={`최소 주문 ${formatWon(product.minOrderAmount)} 미만`} tone="warning" />
         ) : null}
@@ -175,8 +173,6 @@ export default function CompareDetailScreen() {
         title={ingredient.name}
         subtitle={[ingredient.spec, `기본 단위 ${unitLabel(base)}`].filter(Boolean).join(' · ')}
       />
-      <DemoNotice>공급처 상품과 가격은 데모 데이터예요</DemoNotice>
-
       <TextField
         label="필요 수량"
         value={shownNeed}
