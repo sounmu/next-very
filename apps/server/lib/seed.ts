@@ -1,7 +1,8 @@
-import { hankkiPreset, type Preset } from "@marginlog/core";
+import { getPreset, hankkiPreset, type Preset } from "@marginlog/core";
 import { SHOWCASE_EMAIL } from "@marginlog/core/src/api/auth";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import type { Db } from "../db/client";
+import type { StoreRow } from "./auth";
 import {
   cartItems,
   ingredientAliases,
@@ -183,5 +184,37 @@ export async function resetShowcaseStore(db: Db): Promise<void> {
     await tx.delete(stores).where(eq(stores.id, SHOWCASE_STORE_ID));
     await tx.insert(users).values({ id: SHOWCASE_USER_ID, email: SHOWCASE_EMAIL }).onConflictDoNothing();
     await insertShowcaseStore(tx);
+  });
+}
+
+/**
+ * Puts one new store back to its preset: deletes every row of that store (children first) and copies the preset again,
+ * in one transaction. The stores row, its user and every other store stay as they are.
+ */
+export async function resetOwnStore(db: Db, store: StoreRow): Promise<void> {
+  const storeId = store.id;
+  await db.transaction(async (tx) => {
+    const storeInvoices = tx.select({ id: invoices.id }).from(invoices).where(eq(invoices.storeId, storeId));
+    const storeOrders = tx.select({ id: orders.id }).from(orders).where(eq(orders.storeId, storeId));
+    const storeMenus = tx.select({ id: menus.id }).from(menus).where(eq(menus.storeId, storeId));
+    const storeIngredients = tx.select({ id: ingredients.id }).from(ingredients).where(eq(ingredients.storeId, storeId));
+
+    await tx.delete(sales).where(eq(sales.storeId, storeId));
+    await tx.delete(purchases).where(eq(purchases.storeId, storeId));
+    await tx.delete(cartItems).where(eq(cartItems.storeId, storeId));
+    await tx.delete(orderLines).where(inArray(orderLines.orderId, storeOrders));
+    await tx.delete(orders).where(eq(orders.storeId, storeId));
+    await tx.delete(invoiceImages).where(inArray(invoiceImages.invoiceId, storeInvoices));
+    await tx.delete(invoices).where(eq(invoices.storeId, storeId));
+    await tx.delete(quotes).where(eq(quotes.storeId, storeId));
+    await tx.delete(supplierProducts).where(eq(supplierProducts.storeId, storeId));
+    await tx.delete(recipeLines).where(inArray(recipeLines.menuId, storeMenus));
+    await tx.delete(menus).where(eq(menus.storeId, storeId));
+    await tx.delete(marketIndex).where(eq(marketIndex.storeId, storeId));
+    await tx.delete(ingredientAliases).where(inArray(ingredientAliases.ingredientId, storeIngredients));
+    await tx.delete(suppliers).where(eq(suppliers.storeId, storeId));
+    await tx.delete(ingredients).where(eq(ingredients.storeId, storeId));
+
+    await insertPreset(tx, { storeId, idPrefix: `${storeId}-`, preset: getPreset(store.preset) });
   });
 }

@@ -35,9 +35,9 @@ export async function readJsonBody<S extends ZodType>(
 }
 
 /** The cart with each product and supplier name, and the order preview from buildOrder. */
-export async function loadCartResponse(db: Db): Promise<CartResponse> {
-  const cart = await loadCart(db);
-  const state = await loadState(db);
+export async function loadCartResponse(db: Db, storeId: string): Promise<CartResponse> {
+  const cart = await loadCart(db, storeId);
+  const state = await loadState(db, storeId);
   const supplierNames = new Map(state.suppliers.map((s) => [s.id, s.name]));
   const items = cart.flatMap((item) => {
     const product = state.products.find((p) => p.id === item.productId);

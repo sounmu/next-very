@@ -1,18 +1,22 @@
 import type { Invoice, Purchase } from "@marginlog/core";
+import { eq } from "drizzle-orm";
 import type { ZodType } from "zod";
 import type { Db } from "../../../db/client";
 import { suppliers, type invoices, type purchases } from "../../../db/schema";
 
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
-/** Existing supplier whose trimmed name matches, else a new one. */
-export async function findOrCreateSupplier(db: Db | Tx, name: string): Promise<string> {
+/** The store's supplier whose trimmed name matches, else a new one in that store. */
+export async function findOrCreateSupplier(db: Db | Tx, storeId: string, name: string): Promise<string> {
   const trimmed = name.trim();
-  const rows = await db.select({ id: suppliers.id, name: suppliers.name }).from(suppliers);
+  const rows = await db
+    .select({ id: suppliers.id, name: suppliers.name })
+    .from(suppliers)
+    .where(eq(suppliers.storeId, storeId));
   const found = rows.find((s) => s.name.trim() === trimmed);
   if (found) return found.id;
   const id = `supplier-${crypto.randomUUID()}`;
-  await db.insert(suppliers).values({ id, name: trimmed });
+  await db.insert(suppliers).values({ id, storeId, name: trimmed });
   return id;
 }
 

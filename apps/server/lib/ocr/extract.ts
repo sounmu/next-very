@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type, type Schema } from "@google/genai";
-import { isUnit, seed, type ExtractResult, type Unit } from "@marginlog/core";
+import { isUnit, type ExtractResult, type Preset, type Unit } from "@marginlog/core";
 import sharp from "sharp";
 import { z } from "zod";
 
@@ -145,11 +145,11 @@ async function extractWithGemini(image: Buffer, apiKey: string): Promise<Extract
 
 /**
  * Reads an invoice photo. The model only reads printed values; ingredient
- * mapping happens in aliases.ts. Falls back to the seed demo invoice extraction
- * when the key is missing, the call fails or it takes over 8 seconds, unless
+ * mapping happens in aliases.ts. Falls back to the store preset's demo invoice
+ * extraction when the key is missing, the call fails or it takes over 8 seconds, unless
  * DEMO_FALLBACK=0.
  */
-export async function extractInvoice(image: Buffer, mime: string): Promise<Extraction> {
+export async function extractInvoice(image: Buffer, mime: string, preset: Preset): Promise<Extraction> {
   try {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) throw new Error("GEMINI_API_KEY is not set");
@@ -157,6 +157,6 @@ export async function extractInvoice(image: Buffer, mime: string): Promise<Extra
   } catch (err) {
     if (process.env.DEMO_FALLBACK === "0") throw err;
     console.warn(`[ocr] using demo extract for ${mime} upload:`, err instanceof Error ? err.message : err);
-    return { result: structuredClone(seed.demoInvoice.extraction), isDemo: true };
+    return { result: structuredClone(preset.demoInvoice.extraction), isDemo: true };
   }
 }
