@@ -33,7 +33,7 @@ apps/
       menus/index.tsx                  메뉴 목록
       menus/[id].tsx                   메뉴 원가 상세
       recipe/[menuId].tsx              레시피 편집 (new면 신규)
-      records/upload.tsx               사진 업로드와 인식 중 상태
+      records/upload.tsx               사진 업로드와 인식 중 상태, 직접 입력으로 가는 버튼
       records/[invoiceId]/review.tsx   인식 결과 확인
       records/[invoiceId]/done.tsx     저장 완료와 바뀐 원가
       purchases/new.tsx                구매 기록 직접 입력

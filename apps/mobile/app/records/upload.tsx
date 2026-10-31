@@ -2,11 +2,25 @@ import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Image, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
 import { useUploadInvoice } from '@/api/records';
-import { Button, Card, Header, Notice, Screen, colors, iconSize, iconStroke, lineWidth, radius, space, typography } from '@/ui';
+import {
+  Button,
+  Card,
+  Header,
+  Screen,
+  colors,
+  control,
+  iconSize,
+  iconStroke,
+  lineWidth,
+  opacity,
+  radius,
+  space,
+  typography,
+} from '@/ui';
 
 type Picked = { uri: string };
 
@@ -85,7 +99,21 @@ export default function ReceiptUploadScreen() {
         />
       }
     >
-      <Header backLabel="구매 기록" title="영수증 등록" />
+      <Header
+        backLabel="구매 기록"
+        title="영수증 등록"
+        right={
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.replace('/purchases/new')}
+            disabled={busy}
+            hitSlop={space.s2}
+            style={({ pressed }) => [styles.textAction, pressed && styles.pressed, busy && styles.disabled]}
+          >
+            <Text style={styles.textActionLabel}>직접 입력</Text>
+          </Pressable>
+        }
+      />
 
       <Card>
         <View style={styles.photo}>
@@ -109,7 +137,6 @@ export default function ReceiptUploadScreen() {
             <View style={styles.busy}>
               <ActivityIndicator color={colors.primary} />
               <Text style={typography.bodyStrong}>구매 내역을 읽고 있어요</Text>
-              <Text style={typography.caption}>품목, 수량, 금액을 찾는 중이에요</Text>
             </View>
           ) : null}
         </View>
@@ -125,7 +152,6 @@ export default function ReceiptUploadScreen() {
           결제 총액만 있는 사진은 단가 분석이 어려워요. 품목·수량이 보이는 영수증이나 주문내역을 올려 주세요.
         </Text>
       </Card>
-      <Notice>읽은 결과는 저장하기 전에 한 번 더 확인해요. 인식하지 못한 값은 비워 두고 표시해요.</Notice>
     </Screen>
   );
 }
@@ -153,4 +179,9 @@ const styles = StyleSheet.create({
   pickActions: { flexDirection: 'row', gap: space.s2, marginTop: space.s4 },
   flex: { flex: 1 },
   error: { ...typography.caption, color: colors.loss, marginTop: space.s3 },
+  /** 44 touch target, pulled in by s2 on each side so the label centers on the 28-line detail title. */
+  textAction: { minHeight: control.iconButton, justifyContent: 'center', marginVertical: -space.s2 },
+  textActionLabel: { ...typography.secondary, color: colors.text, fontWeight: '600' },
+  pressed: { opacity: opacity.pressed },
+  disabled: { opacity: opacity.disabled },
 });
