@@ -1,13 +1,17 @@
 import { compareOffers } from "@marginlog/core";
 import { CompareResponseSchema } from "@marginlog/core/src/api/compare";
 import { getDb } from "../../../db/client";
+import { requireStore } from "../../../lib/auth";
 import { loadState } from "../../../lib/repo";
 import { defaultNeededBaseQty, latestOf } from "./need";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
-  const state = await loadState(getDb());
+export async function GET(request: Request) {
+  const db = getDb();
+  const auth = await requireStore(db, request);
+  if (auth instanceof Response) return auth;
+  const state = await loadState(db, auth.storeId);
   const supplierName = new Map(state.suppliers.map((s) => [s.id, s.name]));
 
   const items = state.ingredients.flatMap((ingredient) => {

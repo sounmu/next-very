@@ -1,6 +1,6 @@
 import type { Ingredient } from "@marginlog/core";
 import { ErrorResponseSchema } from "@marginlog/core/src/api/common";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import type { z } from "zod";
 import type { Db } from "../../../db/client";
 import { ingredientAliases, ingredients } from "../../../db/schema";
@@ -27,8 +27,12 @@ export async function readBody<S extends z.ZodType>(
   return { data: parsed.data };
 }
 
-export async function loadIngredient(db: Db, id: string): Promise<Ingredient | null> {
-  const [row] = await db.select().from(ingredients).where(eq(ingredients.id, id));
+/** null when the ingredient does not exist in this store. */
+export async function loadIngredient(db: Db, storeId: string, id: string): Promise<Ingredient | null> {
+  const [row] = await db
+    .select()
+    .from(ingredients)
+    .where(and(eq(ingredients.id, id), eq(ingredients.storeId, storeId)));
   if (!row) return null;
   const aliasRows = await db
     .select()
