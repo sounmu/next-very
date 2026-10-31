@@ -7,6 +7,7 @@ import {
 } from "@marginlog/core/src/api/purchases";
 import { getDb } from "../../../db/client";
 import { purchases } from "../../../db/schema";
+import { requireStore } from "../../../lib/auth";
 import { loadState } from "../../../lib/repo";
 import { errorResponse, findOrCreateSupplier, handleError, HttpError, parseBody, toPurchase } from "../invoices/shared";
 
@@ -15,6 +16,9 @@ export const dynamic = "force-dynamic";
 const desc = (a: string, b: string): number => (a < b ? 1 : a > b ? -1 : 0);
 
 export async function GET(request: Request) {
+  const db = getDb();
+  const auth = await requireStore(db, request);
+  if (auth instanceof Response) return auth;
   const params = new URL(request.url).searchParams;
   const parsed = PurchaseListQuerySchema.safeParse({
     q: params.get("q") || undefined,
@@ -24,7 +28,7 @@ export async function GET(request: Request) {
   if (!parsed.success) return errorResponse(400, "검색 조건이 올바르지 않아요 (month는 YYYY-MM)");
   const { q, ingredientId, month } = parsed.data;
 
-  const state = await loadState(getDb());
+  const state = await loadState(db, auth.storeId);
   const ingredientsById = new Map(state.ingredients.map((i) => [i.id, i]));
   const supplierNames = new Map(state.suppliers.map((s) => [s.id, s.name]));
   const needle = q?.toLowerCase();
@@ -55,21 +59,24 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const db = getDb();
+  const auth = await requireStore(db, request);
+  if (auth instanceof Response) return auth;
   try {
     const body = await parseBody(request, PurchaseCreateSchema);
-    const db = getDb();
-    const state = await loadState(db);
+    const state = await loadState(db, auth.storeId);
     if (!state.ingredients.some((i) => i.id === body.ingredientId)) throw new HttpError(400, "등록되지 않은 재료예요");
     if (body.supplierId && !state.suppliers.some((s) => s.id === body.supplierId)) {
       throw new HttpError(400, "등록되지 않은 구매처예요");
     }
 
     const row = await db.transaction(async (tx) => {
-      const supplierId = body.supplierId ?? (await findOrCreateSupplier(tx, body.supplierName ?? ""));
+      const supplierId = body.supplierId ?? (await findOrCreateSupplier(tx, auth.storeId, body.supplierName ?? ""));
       const [inserted] = await tx
         .insert(purchases)
         .values({
           id: `purchase-${crypto.randomUUID()}`,
+          storeId: auth.storeId,
           ingredientId: body.ingredientId,
           supplierId,
           date: body.date,

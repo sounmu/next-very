@@ -1,8 +1,9 @@
 import { baseOf, computeMenuCost, consumption, unitLabel, type Ingredient, type Purchase } from "@marginlog/core";
 import { ConfirmResultSchema, InvoiceConfirmSchema } from "@marginlog/core/src/api/invoices";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { getDb } from "../../../../../db/client";
 import { ingredientAliases, ingredients, invoices, purchases } from "../../../../../db/schema";
+import { requireStore } from "../../../../../lib/auth";
 import { loadState } from "../../../../../lib/repo";
 import { findOrCreateSupplier, handleError, HttpError, isIsoDate, parseBody } from "../../shared";
 
@@ -10,13 +11,19 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const db = getDb();
+  const auth = await requireStore(db, request);
+  if (auth instanceof Response) return auth;
   try {
     const body = await parseBody(request, InvoiceConfirmSchema);
-    const db = getDb();
-    const before = await loadState(db);
+    const before = await loadState(db, auth.storeId);
 
     const result = await db.transaction(async (tx) => {
-      const [invoice] = await tx.select().from(invoices).where(eq(invoices.id, id)).for("update");
+      const [invoice] = await tx
+        .select()
+        .from(invoices)
+        .where(and(eq(invoices.id, id), eq(invoices.storeId, auth.storeId)))
+        .for("update");
       if (!invoice) throw new HttpError(404, "명세서를 찾을 수 없어요");
       if (invoice.status === "confirmed") throw new HttpError(409, "이미 저장한 명세서예요");
 
@@ -29,13 +36,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         if (!before.suppliers.some((s) => s.id === body.supplierId)) throw new HttpError(400, "등록되지 않은 구매처예요");
         supplierId = body.supplierId;
       } else if (body.supplierName) {
-        supplierId = await findOrCreateSupplier(tx, body.supplierName);
+        supplierId = await findOrCreateSupplier(tx, auth.storeId, body.supplierName);
       } else if (invoice.supplierId) {
         supplierId = invoice.supplierId;
       } else {
         const printed = invoice.extraction.supplier.trim();
         if (!printed) throw new HttpError(400, "구매처를 입력해 주세요");
-        supplierId = await findOrCreateSupplier(tx, printed);
+        supplierId = await findOrCreateSupplier(tx, auth.storeId, printed);
       }
 
       const created: Ingredient[] = [];
@@ -50,7 +57,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           ingredient = created.find((i) => i.name === spec.name && i.baseUnit === spec.baseUnit);
           if (!ingredient) {
             ingredient = { id: `ingredient-${crypto.randomUUID()}`, name: spec.name, spec: spec.spec, baseUnit: spec.baseUnit, aliases: [] };
-            await tx.insert(ingredients).values({ id: ingredient.id, name: spec.name, spec: spec.spec ?? null, baseUnit: spec.baseUnit });
+            await tx.insert(ingredients).values({
+              id: ingredient.id,
+              storeId: auth.storeId,
+              name: spec.name,
+              spec: spec.spec ?? null,
+              baseUnit: spec.baseUnit,
+            });
             created.push(ingredient);
           }
         }
@@ -82,7 +95,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         });
       }
 
-      await tx.insert(purchases).values(rows);
+      await tx.insert(purchases).values(rows.map((row) => ({ ...row, storeId: auth.storeId })));
       await tx.update(invoices).set({ status: "confirmed", supplierId, date }).where(eq(invoices.id, id));
       return { rows, created };
     });

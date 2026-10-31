@@ -6,19 +6,22 @@ import { invoices } from "../../../../db/schema";
 import { matchIngredient } from "../../../../lib/ocr/aliases";
 import { extractIssues } from "../../../../lib/ocr/validate";
 import { loadInvoices, loadState } from "../../../../lib/repo";
+import { requireStore } from "../../../../lib/auth";
 import { errorResponse } from "../shared";
 
 export const dynamic = "force-dynamic";
 
 const UNIT_MISMATCH = "단위가 재료 기준 단위와 달라요";
 
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const db = getDb();
-  const invoice = (await loadInvoices(db)).find((i) => i.id === id);
+  const auth = await requireStore(db, request);
+  if (auth instanceof Response) return auth;
+  const invoice = (await loadInvoices(db, auth.storeId)).find((i) => i.id === id);
   if (!invoice) return errorResponse(404, "명세서를 찾을 수 없어요");
 
-  const state = await loadState(db);
+  const state = await loadState(db, auth.storeId);
   const extraction = invoice.extraction;
   const printedName = extraction.supplier.trim();
   const known =
@@ -62,15 +65,18 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 }
 
 /** Discards an unsaved invoice (the owner left the review screen). The photo row cascades. */
-export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const db = getDb();
+  const auth = await requireStore(db, request);
+  if (auth instanceof Response) return auth;
   const deleted = await db
     .delete(invoices)
-    .where(and(eq(invoices.id, id), eq(invoices.status, "extracted")))
+    .where(and(eq(invoices.id, id), eq(invoices.storeId, auth.storeId), eq(invoices.status, "extracted")))
     .returning({ id: invoices.id });
   if (deleted.length > 0) return Response.json({ id });
-  const [existing] = await db.select({ id: invoices.id }).from(invoices).where(eq(invoices.id, id));
+  const [existing] = await db.select({ id: invoices.id }).from(invoices)
+    .where(and(eq(invoices.id, id), eq(invoices.storeId, auth.storeId)));
   if (!existing) return errorResponse(404, "명세서를 찾을 수 없어요");
   return errorResponse(409, "저장한 명세서는 지울 수 없어요");
 }

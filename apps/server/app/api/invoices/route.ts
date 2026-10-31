@@ -1,6 +1,9 @@
 import { InvoiceCreateResponseSchema, InvoicesResponseSchema } from "@marginlog/core/src/api/invoices";
+import { getPreset } from "@marginlog/core";
+import { eq } from "drizzle-orm";
 import { getDb } from "../../../db/client";
 import { invoiceImages, invoices, suppliers } from "../../../db/schema";
+import { requireStore } from "../../../lib/auth";
 import { extractInvoice } from "../../../lib/ocr/extract";
 import { validateExtract } from "../../../lib/ocr/validate";
 import { loadInvoices } from "../../../lib/repo";
@@ -11,13 +14,18 @@ export const dynamic = "force-dynamic";
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 
 export async function GET(request: Request) {
+  const db = getDb();
+  const auth = await requireStore(db, request);
+  if (auth instanceof Response) return auth;
   const status = new URL(request.url).searchParams.get("status");
   if (status !== null && status !== "extracted" && status !== "confirmed") {
     return errorResponse(400, "status는 extracted 또는 confirmed만 쓸 수 있어요");
   }
-  const db = getDb();
-  const list = await loadInvoices(db);
-  const supplierRows = await db.select({ id: suppliers.id, name: suppliers.name }).from(suppliers);
+  const list = await loadInvoices(db, auth.storeId);
+  const supplierRows = await db
+    .select({ id: suppliers.id, name: suppliers.name })
+    .from(suppliers)
+    .where(eq(suppliers.storeId, auth.storeId));
   const names = new Map(supplierRows.map((s) => [s.id, s.name]));
   const body = InvoicesResponseSchema.parse({
     invoices: list
@@ -31,6 +39,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const db = getDb();
+  const auth = await requireStore(db, request);
+  if (auth instanceof Response) return auth;
   let form: FormData;
   try {
     form = await request.formData();
@@ -43,12 +54,14 @@ export async function POST(request: Request) {
 
   const bytes = Buffer.from(await file.arrayBuffer());
   const mime = file.type || "image/jpeg";
-  const { result, isDemo } = await extractInvoice(bytes, mime);
+  const { result, isDemo } = await extractInvoice(bytes, mime, getPreset(auth.store.preset));
   const extraction = validateExtract(result);
 
-  const db = getDb();
   const printedName = extraction.supplier.trim();
-  const supplierRows = await db.select({ id: suppliers.id, name: suppliers.name }).from(suppliers);
+  const supplierRows = await db
+    .select({ id: suppliers.id, name: suppliers.name })
+    .from(suppliers)
+    .where(eq(suppliers.storeId, auth.storeId));
   const supplier = printedName ? supplierRows.find((s) => s.name.trim() === printedName) : undefined;
 
   const id = `invoice-${crypto.randomUUID()}`;
@@ -57,6 +70,7 @@ export async function POST(request: Request) {
       .insert(invoices)
       .values({
         id,
+        storeId: auth.storeId,
         supplierId: supplier?.id ?? null,
         date: isIsoDate(extraction.date) ? extraction.date : null,
         status: "extracted",
