@@ -1,47 +1,54 @@
-import { router } from 'expo-router';
+import { LoginRequestSchema } from '@marginlog/core/src/api/auth';
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { emailError, signInWithEmail } from '@/session/auth';
+import { ApiError } from '@/api';
 import { useSession } from '@/session/SessionProvider';
-import { Button, Notice, Screen, TextButton, TextField, colors, lineWidth, space, typography } from '@/ui';
+import { Button, Notice, Screen, TextField, colors, lineWidth, space, typography } from '@/ui';
+
+function emailError(email: string): string | null {
+  if (email.trim() === '') return '이메일을 입력해 주세요';
+  return LoginRequestSchema.safeParse({ email }).success ? null : '이메일 형식을 확인해 주세요';
+}
+
+function errorText(error: unknown) {
+  return error instanceof ApiError ? error.message : '로그인하지 못했어요. 다시 시도해 주세요';
+}
 
 export default function LoginScreen() {
-  const { startShowcase } = useSession();
+  const { login, loginShowcase } = useSession();
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [pending, setPending] = useState(false);
-  const [authError, setAuthError] = useState<string | null>(null);
+  const [loginError, setLoginError] = useState<string | null>(null);
   const [entering, setEntering] = useState(false);
   const [enterError, setEnterError] = useState<string | null>(null);
 
   const emailMessage = submitted ? emailError(email) : null;
-  const passwordMessage = submitted && password === '' ? '비밀번호를 입력해 주세요' : null;
+  const busy = pending || entering;
 
   async function submit() {
-    if (pending) return;
+    if (busy) return;
     setSubmitted(true);
-    setAuthError(null);
-    if (emailError(email) !== null || password === '') return;
+    setLoginError(null);
+    if (emailError(email) !== null) return;
     setPending(true);
     try {
-      const result = await signInWithEmail(email.trim(), password);
-      if (!result.ok) setAuthError(result.message);
-    } finally {
+      await login(email.trim());
+    } catch (error) {
+      setLoginError(errorText(error));
       setPending(false);
     }
   }
 
-  async function enter(start: () => Promise<void>) {
-    if (entering) return;
+  async function enterShowcase() {
+    if (busy) return;
     setEntering(true);
     setEnterError(null);
     try {
-      await start();
-    } catch {
-      setEnterError('시작하지 못했어요. 다시 시도해 주세요');
+      await loginShowcase();
+    } catch (error) {
+      setEnterError(errorText(error));
       setEntering(false);
     }
   }
@@ -65,27 +72,13 @@ export default function LoginScreen() {
         autoComplete="email"
         error={emailMessage ?? undefined}
       />
-      <TextField
-        label="비밀번호"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry={!showPassword}
-        autoCapitalize="none"
-        autoComplete="current-password"
-        error={passwordMessage ?? undefined}
-        accessory={<TextButton label={showPassword ? '숨기기' : '표시'} onPress={() => setShowPassword((value) => !value)} />}
-      />
-      {authError ? <Text style={styles.warn}>{authError}</Text> : null}
-      <Button label="로그인" onPress={submit} loading={pending} disabled={pending} />
-
-      <View style={styles.link}>
-        <Text style={typography.secondary}>처음이신가요?</Text>
-        <TextButton label="회원가입" tone="primary" onPress={() => router.push('/signup')} />
-      </View>
+      <Button label="로그인" onPress={submit} loading={pending} disabled={busy} />
+      <Notice align="center">처음 쓰는 이메일이면 새 가게를 만들어요</Notice>
+      {loginError ? <Text style={styles.error}>{loginError}</Text> : null}
 
       <View style={styles.demo}>
-        <Button variant="secondary" label="시연 가게 둘러보기" onPress={() => enter(startShowcase)} disabled={entering} />
-        <Notice align="center">계정 없이 한끼식당 데이터로 둘러봐요</Notice>
+        <Button variant="secondary" label="시연 가게 둘러보기" onPress={enterShowcase} loading={entering} disabled={busy} />
+        <Notice align="center">한끼식당 데이터로 둘러봐요</Notice>
         {enterError ? <Text style={styles.error}>{enterError}</Text> : null}
       </View>
     </Screen>
@@ -97,8 +90,6 @@ const styles = StyleSheet.create({
   brand: { gap: space.s2, marginBottom: space.s4 },
   logo: { ...typography.title, color: colors.primary },
   tagline: { ...typography.body, color: colors.text2 },
-  link: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.s1 },
   demo: { gap: space.s2, marginTop: space.s4, paddingTop: space.s6, borderTopWidth: lineWidth, borderTopColor: colors.line },
-  warn: { ...typography.secondary, color: colors.warn },
   error: { ...typography.caption, color: colors.loss, textAlign: 'center' },
 });
