@@ -1,13 +1,15 @@
+/** Integer Korean won. Unit prices per base unit remain unrounded numbers. */
 export type Won = number;
-export type Grams = number;
-export type WonPerKg = number;
+export type Unit = 'g' | 'kg' | 'mL' | 'L' | 'ea';
+export type BaseUnit = 'g' | 'mL' | 'ea';
 
-/** `marketCode` is absent when no public market price exists ("참고 시세 없음"). */
 export interface Ingredient {
   id: string;
   name: string;
   spec?: string;
+  baseUnit: BaseUnit;
   marketCode?: string;
+  aliases: string[];
 }
 
 export interface Supplier {
@@ -18,37 +20,155 @@ export interface Supplier {
   createdAt: string;
 }
 
-/** Unit price a supplier quoted in screen 04. Never an input to any cost calculation. */
+/** Quotes never feed purchase-based cost calculations. */
 export interface Quote {
   id: string;
   supplierId: string;
   ingredientId: string;
-  unitPrice: WonPerKg;
-  packWeightG: Grams;
+  packSize: number;
+  packUnit: Unit;
+  price: Won;
   terms?: string;
   date: string;
 }
 
-/** Only `confirmed` purchases feed menu cost. */
 export interface Purchase {
   id: string;
   ingredientId: string;
   supplierId: string;
+  /** YYYY-MM-DD */
   date: string;
-  packWeightG: Grams;
+  packSize: number;
+  packUnit: Unit;
   quantity: number;
   amount: Won;
-  unitPrice: WonPerKg;
-  status: 'confirmed' | 'pending';
+  status: 'confirmed';
+  source: 'receipt' | 'manual' | 'order';
   invoiceId?: string;
+  orderLineId?: string;
+  rawName?: string;
+}
+
+export interface RecipeLine {
+  ingredientId: string;
+  amount: number;
+  unit: Unit;
+}
+
+export interface Menu {
+  id: string;
+  name: string;
+  price: Won;
+  servingLabel: string;
+  recipe: RecipeLine[];
+}
+
+export interface MenuCostLine {
+  ingredientId: string;
+  amount: number;
+  unit: Unit;
+  baseQty: number | null;
+  unitPricePerBase: number | null;
+  priceDate: string | null;
+  supplierId: string | null;
+  cost: Won | null;
+  previousCost: Won | null;
+  issue: null | 'no-price' | 'unit-mismatch';
+}
+
+export interface MenuCost {
+  menuId: string;
+  total: Won | null;
+  partialTotal: Won;
+  ratio: number | null;
+  previousTotal: Won | null;
+  lines: MenuCostLine[];
+  missing: string[];
+  unitIssues: string[];
+}
+
+export interface CostAlert {
+  menuId: string;
+  menuName: string;
+  delta: Won;
+  ingredientIds: string[];
+}
+
+export interface PriceChange {
+  ingredientId: string;
+  previousUnitPrice: number;
+  currentUnitPrice: number;
+  changeRate: number;
+  currentDate: string;
+  previousDate: string;
+}
+
+export interface SupplierProduct {
+  id: string;
+  supplierId: string;
+  ingredientId: string;
+  name: string;
+  spec?: string;
+  grade?: string;
+  origin?: string;
+  packSize: number;
+  packUnit: Unit;
+  price: Won;
+  shippingFee: Won;
+  minOrderAmount: Won;
+  deliveryNote?: string;
+  isDemo: boolean;
+}
+
+export interface Offer {
+  product: SupplierProduct;
+  comparable: boolean;
+  reason: null | 'unit' | 'spec';
+  unitPricePerBase: number | null;
+  packs: number;
+  itemsTotal: Won;
+  shippingFee: Won;
+  total: Won;
+  meetsMinOrder: boolean;
+}
+
+export interface CartItem {
+  productId: string;
+  /** Integer pack count, at least one. */
+  quantity: number;
+}
+
+export interface OrderLine {
+  id: string;
+  productId: string;
+  supplierId: string;
+  ingredientId: string;
+  name: string;
+  packSize: number;
+  packUnit: Unit;
+  quantity: number;
+  price: Won;
+  amount: Won;
+}
+
+export interface Order {
+  id: string;
+  status: 'placed' | 'received';
+  isDemo: true;
+  createdAt: string;
+  receivedAt?: string;
+  lines: OrderLine[];
+  itemsTotal: Won;
+  shippingTotal: Won;
+  total: Won;
 }
 
 export interface ExtractItem {
   rawName: string;
-  packWeightG: Grams | null;
-  packUnit: string;
+  packSize: number | null;
+  packUnit: Unit | null;
   quantity: number;
-  /** Price per pack, as printed on the invoice. */
+  /** Price per pack, as printed. */
   unitPrice: Won;
   amount: Won;
   confidence: 'high' | 'low';
@@ -64,57 +184,16 @@ export interface ExtractResult {
 
 export interface Invoice {
   id: string;
-  imageId: string;
+  hasImage: boolean;
   supplierId?: string;
   date?: string;
   status: 'extracted' | 'confirmed';
   extraction: ExtractResult;
   isDemo: boolean;
+  createdAt: string;
 }
 
-export interface RecipeLine {
-  ingredientId: string;
-  grams: Grams;
-}
-
-export interface Menu {
-  id: string;
-  name: string;
-  price: Won;
-  servings: 1;
-  recipe: RecipeLine[];
-}
-
-export interface MenuCostLine {
-  ingredientId: string;
-  grams: Grams;
-  unitPrice: WonPerKg | null;
-  supplierId: string | null;
-  cost: Won | null;
-  previousCost: Won | null;
-}
-
-export interface MenuCost {
-  menuId: string;
-  /** null when any recipe ingredient has no confirmed purchase. */
-  total: Won | null;
-  /** total / price, null when total is null. */
-  ratio: number | null;
-  /** null when total is null or no ingredient has a previous price. */
-  previousTotal: Won | null;
-  lines: MenuCostLine[];
-  /** ingredientIds without a confirmed purchase. */
-  missing: string[];
-}
-
-export interface CostAlert {
-  menuId: string;
-  menuName: string;
-  delta: Won;
-  ingredientIds: string[];
-}
-
-/** 4-week indexes, first week = 100. */
+/** Four-week example indexes, first week = 100. */
 export interface MarketIndex {
   mine: number[];
   market: number[];

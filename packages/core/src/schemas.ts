@@ -1,70 +1,139 @@
 import { z } from 'zod';
 import type {
+  BaseUnit,
+  CartItem,
   CostAlert,
   ExtractItem,
   ExtractResult,
   Ingredient,
   Invoice,
+  MarketIndex,
   Menu,
   MenuCost,
   MenuCostLine,
+  Offer,
+  Order,
+  OrderLine,
+  PriceChange,
   Purchase,
-  Quote,
   RecipeLine,
   Supplier,
+  SupplierProduct,
+  Unit,
 } from './types';
 
-const won = z.number().int();
-const grams = z.number().int().positive();
-const wonPerKg = z.number().int();
-const date = z.iso.date();
-const id = z.string().min(1);
+/** Shared primitives, reused by the request and response schemas in `api/`. */
+export const IdSchema = z.string().min(1);
+/** Integer won, never negative. Unit prices per base unit are plain numbers instead. */
+export const WonSchema = z.number().int().nonnegative();
+/** YYYY-MM-DD */
+export const IsoDateSchema = z.iso.date();
+/** YYYY-MM */
+export const MonthSchema = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/);
+export const TimestampSchema = z.iso.datetime({ offset: true });
+
+export const UnitSchema = z.enum(['g', 'kg', 'mL', 'L', 'ea']) satisfies z.ZodType<Unit>;
+export const BaseUnitSchema = z.enum(['g', 'mL', 'ea']) satisfies z.ZodType<BaseUnit>;
 
 export const IngredientSchema = z.object({
-  id,
+  id: IdSchema,
   name: z.string().min(1),
   spec: z.string().optional(),
+  baseUnit: BaseUnitSchema,
   marketCode: z.string().optional(),
+  aliases: z.array(z.string()),
 }) satisfies z.ZodType<Ingredient>;
 
 export const SupplierSchema = z.object({
-  id,
+  id: IdSchema,
   name: z.string().min(1),
   phone: z.string().optional(),
   memo: z.string().optional(),
-  createdAt: z.iso.datetime({ offset: true }),
+  createdAt: TimestampSchema,
 }) satisfies z.ZodType<Supplier>;
 
-export const QuoteSchema = z.object({
-  id,
-  supplierId: id,
-  ingredientId: id,
-  unitPrice: wonPerKg.positive(),
-  packWeightG: grams,
-  terms: z.string().optional(),
-  date,
-}) satisfies z.ZodType<Quote>;
-
 export const PurchaseSchema = z.object({
-  id,
-  ingredientId: id,
-  supplierId: id,
-  date,
-  packWeightG: grams,
+  id: IdSchema,
+  ingredientId: IdSchema,
+  supplierId: IdSchema,
+  date: IsoDateSchema,
+  packSize: z.number().positive(),
+  packUnit: UnitSchema,
   quantity: z.number().positive(),
-  amount: won.nonnegative(),
-  unitPrice: wonPerKg.nonnegative(),
-  status: z.enum(['confirmed', 'pending']),
+  amount: WonSchema,
+  status: z.literal('confirmed'),
+  source: z.enum(['receipt', 'manual', 'order']),
   invoiceId: z.string().optional(),
+  orderLineId: z.string().optional(),
+  rawName: z.string().optional(),
 }) satisfies z.ZodType<Purchase>;
+
+export const RecipeLineSchema = z.object({
+  ingredientId: IdSchema,
+  amount: z.number().positive(),
+  unit: UnitSchema,
+}) satisfies z.ZodType<RecipeLine>;
+
+export const MenuSchema = z.object({
+  id: IdSchema,
+  name: z.string().min(1),
+  price: WonSchema,
+  servingLabel: z.string().min(1),
+  recipe: z.array(RecipeLineSchema),
+}) satisfies z.ZodType<Menu>;
+
+export const MenuCostLineSchema = z.object({
+  ingredientId: IdSchema,
+  amount: z.number(),
+  unit: UnitSchema,
+  baseQty: z.number().nullable(),
+  unitPricePerBase: z.number().nullable(),
+  priceDate: z.string().nullable(),
+  supplierId: z.string().nullable(),
+  cost: WonSchema.nullable(),
+  previousCost: WonSchema.nullable(),
+  issue: z.enum(['no-price', 'unit-mismatch']).nullable(),
+}) satisfies z.ZodType<MenuCostLine>;
+
+export const MenuCostSchema = z.object({
+  menuId: IdSchema,
+  total: WonSchema.nullable(),
+  partialTotal: WonSchema,
+  ratio: z.number().nullable(),
+  previousTotal: WonSchema.nullable(),
+  lines: z.array(MenuCostLineSchema),
+  missing: z.array(z.string()),
+  unitIssues: z.array(z.string()),
+}) satisfies z.ZodType<MenuCost>;
+
+export const CostAlertSchema = z.object({
+  menuId: IdSchema,
+  menuName: z.string(),
+  delta: WonSchema,
+  ingredientIds: z.array(z.string()),
+}) satisfies z.ZodType<CostAlert>;
+
+export const PriceChangeSchema = z.object({
+  ingredientId: IdSchema,
+  previousUnitPrice: z.number(),
+  currentUnitPrice: z.number(),
+  changeRate: z.number(),
+  currentDate: IsoDateSchema,
+  previousDate: IsoDateSchema,
+}) satisfies z.ZodType<PriceChange>;
+
+export const MarketIndexSchema = z.object({
+  mine: z.array(z.number()),
+  market: z.array(z.number()),
+}) satisfies z.ZodType<MarketIndex>;
 
 export const ExtractItemSchema = z.object({
   rawName: z.string(),
-  packWeightG: z.number().nullable(),
-  packUnit: z.string(),
+  packSize: z.number().nullable(),
+  packUnit: UnitSchema.nullable(),
   quantity: z.number(),
-  unitPrice: won,
-  amount: won,
+  unitPrice: WonSchema,
+  amount: WonSchema,
   confidence: z.enum(['high', 'low']),
   note: z.string().optional(),
 }) satisfies z.ZodType<ExtractItem>;
@@ -73,115 +142,75 @@ export const ExtractResultSchema = z.object({
   supplier: z.string(),
   date: z.string(),
   items: z.array(ExtractItemSchema),
-  total: won,
+  total: WonSchema,
 }) satisfies z.ZodType<ExtractResult>;
 
 export const InvoiceSchema = z.object({
-  id,
-  imageId: id,
+  id: IdSchema,
+  hasImage: z.boolean(),
   supplierId: z.string().optional(),
   date: z.string().optional(),
   status: z.enum(['extracted', 'confirmed']),
   extraction: ExtractResultSchema,
   isDemo: z.boolean(),
+  createdAt: TimestampSchema,
 }) satisfies z.ZodType<Invoice>;
 
-export const RecipeLineSchema = z.object({
-  ingredientId: id,
-  grams,
-}) satisfies z.ZodType<RecipeLine>;
-
-export const MenuSchema = z.object({
-  id,
+export const SupplierProductSchema = z.object({
+  id: IdSchema,
+  supplierId: IdSchema,
+  ingredientId: IdSchema,
   name: z.string().min(1),
-  price: won.positive(),
-  servings: z.literal(1),
-  recipe: z.array(RecipeLineSchema),
-}) satisfies z.ZodType<Menu>;
+  spec: z.string().optional(),
+  grade: z.string().optional(),
+  origin: z.string().optional(),
+  packSize: z.number().positive(),
+  packUnit: UnitSchema,
+  price: WonSchema,
+  shippingFee: WonSchema,
+  minOrderAmount: WonSchema,
+  deliveryNote: z.string().optional(),
+  isDemo: z.boolean(),
+}) satisfies z.ZodType<SupplierProduct>;
 
-export const MenuCostLineSchema = z.object({
-  ingredientId: id,
-  grams: z.number().int(),
-  unitPrice: wonPerKg.nullable(),
-  supplierId: z.string().nullable(),
-  cost: won.nullable(),
-  previousCost: won.nullable(),
-}) satisfies z.ZodType<MenuCostLine>;
+export const OfferSchema = z.object({
+  product: SupplierProductSchema,
+  comparable: z.boolean(),
+  reason: z.enum(['unit', 'spec']).nullable(),
+  unitPricePerBase: z.number().nullable(),
+  packs: z.number().int().positive(),
+  itemsTotal: WonSchema,
+  shippingFee: WonSchema,
+  total: WonSchema,
+  meetsMinOrder: z.boolean(),
+}) satisfies z.ZodType<Offer>;
 
-export const MenuCostSchema = z.object({
-  menuId: id,
-  total: won.nullable(),
-  ratio: z.number().nullable(),
-  previousTotal: won.nullable(),
-  lines: z.array(MenuCostLineSchema),
-  missing: z.array(z.string()),
-}) satisfies z.ZodType<MenuCost>;
+export const CartItemSchema = z.object({
+  productId: IdSchema,
+  quantity: z.number().int().min(1),
+}) satisfies z.ZodType<CartItem>;
 
-export const CostAlertSchema = z.object({
-  menuId: id,
-  menuName: z.string(),
-  delta: won,
-  ingredientIds: z.array(z.string()),
-}) satisfies z.ZodType<CostAlert>;
+export const OrderLineSchema = z.object({
+  id: IdSchema,
+  productId: IdSchema,
+  supplierId: IdSchema,
+  ingredientId: IdSchema,
+  name: z.string().min(1),
+  packSize: z.number().positive(),
+  packUnit: UnitSchema,
+  quantity: z.number().int().min(1),
+  price: WonSchema,
+  amount: WonSchema,
+}) satisfies z.ZodType<OrderLine>;
 
-export const SupplierCreateSchema = z.object({
-  name: z.string().trim().min(1),
-  phone: z.string().trim().min(1).optional(),
-  memo: z.string().trim().min(1).optional(),
-});
-export type SupplierCreate = z.infer<typeof SupplierCreateSchema>;
-
-export const QuoteCreateSchema = z.object({
-  supplierId: id,
-  ingredientId: id,
-  unitPrice: wonPerKg.positive(),
-  packWeightG: grams,
-  terms: z.string().trim().min(1).optional(),
-  date,
-});
-export type QuoteCreate = z.infer<typeof QuoteCreateSchema>;
-
-/** PUT /api/menus/[id]. `servings` is always 1 and is not sent. */
-export const MenuUpsertSchema = z.object({
-  name: z.string().trim().min(1),
-  price: won.positive(),
-  recipe: z
-    .array(RecipeLineSchema)
-    .min(1)
-    .refine((lines) => new Set(lines.map((l) => l.ingredientId)).size === lines.length, {
-      message: 'duplicate ingredientId in recipe',
-    }),
-});
-export type MenuUpsert = z.infer<typeof MenuUpsertSchema>;
-
-/**
- * POST /api/invoices/[id]/confirm. `items` are the rows after the user's
- * corrections. `supplierId` and `date` fall back to the invoice's when omitted.
- */
-export const InvoiceConfirmSchema = z.object({
-  supplierId: id.optional(),
-  date: date.optional(),
-  items: z
-    .array(
-      z.object({
-        ingredientId: id,
-        packWeightG: grams,
-        quantity: z.number().positive(),
-        amount: won.positive(),
-      }),
-    )
-    .min(1),
-});
-export type InvoiceConfirm = z.infer<typeof InvoiceConfirmSchema>;
-
-export const MenusResponseSchema = z.object({
-  menus: z.array(
-    z.object({
-      menu: MenuSchema,
-      cost: MenuCostSchema,
-      hasPendingQuote: z.boolean(),
-    }),
-  ),
-  alert: CostAlertSchema.nullable(),
-});
-export type MenusResponse = z.infer<typeof MenusResponseSchema>;
+export const OrderSchema = z.object({
+  id: IdSchema,
+  status: z.enum(['placed', 'received']),
+  isDemo: z.literal(true),
+  createdAt: TimestampSchema,
+  receivedAt: TimestampSchema.optional(),
+  lines: z.array(OrderLineSchema),
+  itemsTotal: WonSchema,
+  shippingTotal: WonSchema,
+  total: WonSchema,
+}) satisfies z.ZodType<Order>;

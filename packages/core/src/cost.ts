@@ -1,130 +1,146 @@
 import type {
-  CostAlert,
-  Grams,
-  Menu,
-  MenuCost,
-  MenuCostLine,
-  Purchase,
-  Won,
-  WonPerKg,
+  CostAlert, Ingredient, Menu, MenuCost, MenuCostLine, PriceChange, Purchase, Won,
 } from './types';
-
-/** Price per kg of a pack: round(amount / (quantity * packWeightG / 1000)). */
-export function unitPriceFromPack(amount: Won, quantity: number, packWeightG: Grams): WonPerKg {
-  return Math.round(amount / ((quantity * packWeightG) / 1000));
-}
+import { baseOf, toBase, unitPricePerBase } from './units';
 
 const compare = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 
-export function priceHistory(ingredientId: string, purchases: readonly Purchase[]): Purchase[] {
+export function priceHistory(ingredient: Ingredient, purchases: readonly Purchase[]): Purchase[] {
   return purchases
-    .filter((p) => p.ingredientId === ingredientId && p.status === 'confirmed')
+    .filter((p) => p.ingredientId === ingredient.id && p.status === 'confirmed'
+      && baseOf(p.packUnit) === ingredient.baseUnit)
     .sort((a, b) => compare(a.date, b.date) || compare(a.id, b.id));
 }
 
 export function currentAndPrevious(
-  ingredientId: string,
+  ingredient: Ingredient,
   purchases: readonly Purchase[],
 ): { current: Purchase | null; previous: Purchase | null } {
-  const history = priceHistory(ingredientId, purchases);
-  return {
-    current: history.at(-1) ?? null,
-    previous: history.at(-2) ?? null,
-  };
+  const history = priceHistory(ingredient, purchases);
+  return { current: history.at(-1) ?? null, previous: history.at(-2) ?? null };
 }
 
 export function ratioPercent(total: Won, price: Won): number {
-  return Math.round((total / price) * 100);
+  return Math.round(total / price * 100);
 }
 
-const portionCost = (grams: Grams, unitPrice: WonPerKg): Won => Math.round((grams * unitPrice) / 1000);
-
-interface PriceInfo {
-  unitPrice: WonPerKg | null;
-  supplierId: string | null;
-  previousUnitPrice: WonPerKg | null;
-}
-
-function assemble(menu: Menu, priceOf: (ingredientId: string) => PriceInfo): MenuCost {
-  const lines: MenuCostLine[] = menu.recipe.map(({ ingredientId, grams }) => {
-    const p = priceOf(ingredientId);
-    return {
-      ingredientId,
-      grams,
-      unitPrice: p.unitPrice,
-      supplierId: p.supplierId,
-      cost: p.unitPrice === null ? null : portionCost(grams, p.unitPrice),
-      previousCost: p.previousUnitPrice === null ? null : portionCost(grams, p.previousUnitPrice),
-    };
-  });
-
-  const missing = lines.filter((l) => l.cost === null).map((l) => l.ingredientId);
-  const total = missing.length > 0 ? null : lines.reduce((sum, l) => sum + (l.cost ?? 0), 0);
-  const previousTotal =
-    total === null || !lines.some((l) => l.previousCost !== null)
-      ? null
-      : lines.reduce((sum, l) => sum + (l.previousCost ?? l.cost ?? 0), 0);
-
+function assemble(menu: Menu, lines: MenuCostLine[]): MenuCost {
+  const partialTotal = lines.reduce((sum, line) => sum + (line.cost ?? 0), 0);
+  const total = lines.every((line) => line.cost !== null) ? partialTotal : null;
   return {
     menuId: menu.id,
     total,
+    partialTotal,
     ratio: total === null ? null : total / menu.price,
-    previousTotal,
+    previousTotal: total === null || !lines.some((line) => line.previousCost !== null)
+      ? null
+      : lines.reduce((sum, line) => sum + (line.previousCost ?? line.cost ?? 0), 0),
     lines,
-    missing,
+    missing: lines.filter((line) => line.issue === 'no-price').map((line) => line.ingredientId),
+    unitIssues: lines.filter((line) => line.issue === 'unit-mismatch').map((line) => line.ingredientId),
   };
 }
 
-/** Menu cost from confirmed purchases only. Quotes are never an input. */
-export function computeMenuCost(menu: Menu, purchases: readonly Purchase[]): MenuCost {
-  return assemble(menu, (ingredientId) => {
-    const { current, previous } = currentAndPrevious(ingredientId, purchases);
+/** Only confirmed purchases of the ingredient's base dimension establish prices. */
+export function computeMenuCost(
+  menu: Menu,
+  ingredients: readonly Ingredient[],
+  purchases: readonly Purchase[],
+): MenuCost {
+  const lines = menu.recipe.map((line): MenuCostLine => {
+    const ingredient = ingredients.find((item) => item.id === line.ingredientId);
+    const baseQty = ingredient ? toBase(line.amount, line.unit, ingredient.baseUnit) : null;
+    const { current, previous } = ingredient
+      ? currentAndPrevious(ingredient, purchases)
+      : { current: null, previous: null };
+    const price = current && ingredient ? unitPricePerBase(current, ingredient.baseUnit) : null;
+    const previousPrice = previous && ingredient ? unitPricePerBase(previous, ingredient.baseUnit) : null;
     return {
-      unitPrice: current?.unitPrice ?? null,
+      ...line,
+      baseQty,
+      unitPricePerBase: price,
+      priceDate: current?.date ?? null,
       supplierId: current?.supplierId ?? null,
-      previousUnitPrice: previous?.unitPrice ?? null,
+      cost: baseQty === null || price === null ? null : Math.round(baseQty * price),
+      previousCost: baseQty === null || previousPrice === null ? null : Math.round(baseQty * previousPrice),
+      issue: ingredient && baseQty === null ? 'unit-mismatch' : price === null ? 'no-price' : null,
     };
   });
+  return assemble(menu, lines);
 }
 
-/**
- * Menu cost as if the ingredient's current price were `unitPrice`. The
- * previous totals and per-line previous costs are the real current ones.
- * Writes nothing.
- */
+/** Simulates a base-unit price without mutating purchases or recipes. */
 export function previewWithPrice(
   menu: Menu,
+  ingredients: readonly Ingredient[],
   purchases: readonly Purchase[],
   ingredientId: string,
-  unitPrice: WonPerKg,
+  price: number,
 ): MenuCost {
-  const real = computeMenuCost(menu, purchases);
-  const realLines = new Map(real.lines.map((l) => [l.ingredientId, l]));
-  const preview = assemble(menu, (id) => {
-    const line = realLines.get(id);
+  const real = computeMenuCost(menu, ingredients, purchases);
+  const lines = real.lines.map((line): MenuCostLine => {
+    if (line.ingredientId !== ingredientId || line.baseQty === null) {
+      return { ...line, previousCost: line.cost };
+    }
     return {
-      unitPrice: id === ingredientId ? unitPrice : (line?.unitPrice ?? null),
-      supplierId: id === ingredientId ? null : (line?.supplierId ?? null),
-      previousUnitPrice: line?.unitPrice ?? null,
+      ...line,
+      unitPricePerBase: price,
+      supplierId: null,
+      priceDate: null,
+      cost: Math.round(line.baseQty * price),
+      previousCost: line.cost,
+      issue: null,
     };
   });
-  return { ...preview, previousTotal: real.total };
+  return { ...assemble(menu, lines), previousTotal: real.total };
 }
 
-export function costAlert(menus: readonly Menu[], purchases: readonly Purchase[]): CostAlert | null {
+export function priceChanges(
+  ingredients: readonly Ingredient[],
+  purchases: readonly Purchase[],
+): PriceChange[] {
+  return ingredients.flatMap((ingredient) => {
+    const { current, previous } = currentAndPrevious(ingredient, purchases);
+    if (current === null || previous === null) return [];
+    const currentPrice = unitPricePerBase(current, ingredient.baseUnit);
+    const previousPrice = unitPricePerBase(previous, ingredient.baseUnit);
+    if (currentPrice === null || previousPrice === null) return [];
+    return [{
+      ingredientId: ingredient.id,
+      previousUnitPrice: previousPrice,
+      currentUnitPrice: currentPrice,
+      changeRate: currentPrice / previousPrice - 1,
+      currentDate: current.date,
+      previousDate: previous.date,
+    }];
+  });
+}
+
+export function costAlert(
+  menus: readonly Menu[],
+  ingredients: readonly Ingredient[],
+  purchases: readonly Purchase[],
+): CostAlert | null {
+  const increased = new Set(priceChanges(ingredients, purchases)
+    .filter((change) => change.changeRate > 0).map((change) => change.ingredientId));
   let best: CostAlert | null = null;
   for (const menu of menus) {
-    const { total, previousTotal } = computeMenuCost(menu, purchases);
+    const { total, previousTotal } = computeMenuCost(menu, ingredients, purchases);
     if (total === null || previousTotal === null) continue;
     const delta = total - previousTotal;
     if (delta <= 0 || (best !== null && delta <= best.delta)) continue;
-    const ingredientIds = menu.recipe
-      .map((line) => line.ingredientId)
-      .filter((id) => {
-        const { current, previous } = currentAndPrevious(id, purchases);
-        return current !== null && previous !== null && current.unitPrice > previous.unitPrice;
-      });
-    best = { menuId: menu.id, menuName: menu.name, delta, ingredientIds };
+    best = {
+      menuId: menu.id,
+      menuName: menu.name,
+      delta,
+      ingredientIds: [...new Set(menu.recipe.map((line) => line.ingredientId).filter((id) => increased.has(id)))],
+    };
   }
   return best;
+}
+
+export function monthSpend(purchases: readonly Purchase[], month: string): Won {
+  return purchases
+    .filter((purchase) => purchase.status === 'confirmed' && purchase.date.startsWith(`${month}-`))
+    .reduce((sum, purchase) => sum + purchase.amount, 0);
 }
