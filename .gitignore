@@ -1,1 +1,12 @@
 .DS_Store
+node_modules/
+.next/
+.expo/
+dist/
+web-build/
+*.tsbuildinfo
+.env
+.env.local
+.env*.local
+apps/mobile/ios/
+apps/mobile/android/

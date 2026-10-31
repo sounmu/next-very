@@ -1,0 +1,12 @@
+{
+  "name": "marginlog",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "test": "npm test -w packages/core",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  }
+}
