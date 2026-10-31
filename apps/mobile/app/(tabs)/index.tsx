@@ -1,11 +1,13 @@
 import type { DashboardResponse } from '@marginlog/core/src/api/dashboard';
+import type { SettleResponse } from '@marginlog/core/src/api/settle';
+import { formatDateKo } from '@marginlog/core';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ApiError, useResetDemo } from '@/api';
 import { useCompareList } from '@/api/compare';
-import { useDashboard } from '@/api/home';
+import { useDashboard, useSettle } from '@/api/home';
 import { useIngredients } from '@/api/ingredients';
 import { useOrders } from '@/api/shop';
 import {
@@ -142,6 +144,8 @@ export default function HomeScreen() {
         <HeroCard data={data} names={names} />
       )}
 
+      <SettleCard nextDate={data.nextSettleDate} />
+
       {tasks.length > 0 ? (
         <>
           <SectionHeader title="지금 할 일" />
@@ -165,11 +169,11 @@ export default function HomeScreen() {
         {data.menus.length === 0 ? (
           <Notice style={styles.listNotice}>레시피를 등록하면 메뉴별 식재료비를 볼 수 있어요</Notice>
         ) : (
-          data.menus.map(({ menu, cost }, index) => (
+          data.menus.map(({ menu, cost, sold }, index) => (
             <ListRow
               key={menu.id}
               title={menu.name}
-              subtitle={`판매가 ${formatWon(menu.price)}`}
+              subtitle={`판매가 ${formatWon(menu.price)} · 누적 ${sold}개 판매`}
               value={
                 cost.total === null ? (
                   <Text style={styles.warnText}>{cost.missing.length === 0 && cost.unitIssues.length > 0 ? '단위 확인 필요' : '단가 등록 필요'}</Text>
@@ -190,18 +194,76 @@ export default function HomeScreen() {
         <ListRow title="재료별 구매 단가" chevron onPress={() => router.push('/ingredients')} />
       </Card>
 
-      <Notice align="center">최근 확인된 구매 단가 기준 · 배송비 제외</Notice>
+      <Notice align="center">남은 재고의 구매 단가 기준(먼저 산 것부터) · 배송비 제외</Notice>
     </Screen>
+  );
+}
+
+/** Demo 정산하기: one day of random sales within stock; shows what sold and which menu costs moved. */
+function SettleCard({ nextDate }: { nextDate: string }) {
+  const settle = useSettle();
+  const [result, setResult] = useState<SettleResponse | null>(null);
+  const sold = result?.lines.filter((line) => line.quantity > 0) ?? [];
+  const short = result?.lines.filter((line) => line.quantity < line.target) ?? [];
+
+  return (
+    <Card style={styles.settle}>
+      <View style={styles.settleHead}>
+        <View style={styles.flex}>
+          <Text style={typography.bodyStrong}>영업 정산</Text>
+          <Text style={typography.caption}>판매한 만큼 재료 재고에서 빼요</Text>
+        </View>
+      </View>
+      {result ? (
+        <View style={styles.settleResult} accessibilityLiveRegion="polite">
+          <Text style={typography.secondary}>{`${formatDateKo(result.date)} 판매`}</Text>
+          <Text style={typography.body}>
+            {sold.length === 0 ? '재고가 없어 만든 메뉴가 없어요' : sold.map((line) => `${line.menuName} ${line.quantity}개`).join(' · ')}
+          </Text>
+          {short.length > 0 ? (
+            <Text style={styles.warnText}>{`재고 부족: ${short.map((line) => line.menuName).join(', ')}`}</Text>
+          ) : null}
+          {result.changes.length > 0 ? (
+            result.changes.map((change) => (
+              <Text key={change.menuId} style={styles.changeText}>
+                {`${change.menuName} 원가 ${formatWon(change.before.total ?? change.before.partialTotal)} → ${formatWon(change.after.total ?? change.after.partialTotal)}`}
+              </Text>
+            ))
+          ) : (
+            <Text style={typography.caption}>메뉴 원가는 그대로예요 · 쓰던 재고가 아직 남아 있어요</Text>
+          )}
+        </View>
+      ) : null}
+      {settle.isError ? <Text style={styles.errorText}>{`정산하지 못했어요. ${errorText(settle.error)}`}</Text> : null}
+      <Button
+        variant="secondary"
+        label={`${formatDateKo(nextDate)} 정산하기`}
+        loading={settle.isPending}
+        onPress={() => settle.mutate(undefined, { onSuccess: setResult })}
+      />
+    </Card>
   );
 }
 
 function HeroCard({ data, names }: { data: DashboardResponse; names: Map<string, string> }) {
   const alert = data.alert;
-  const item = (alert && data.menus.find(({ menu }) => menu.id === alert.menuId)) || data.menus[0];
+  const delta = ({ cost }: DashboardResponse['menus'][number]) =>
+    cost.total === null || cost.previousTotal === null ? 0 : cost.total - cost.previousTotal;
+  const moved = data.menus.filter((entry) => delta(entry) !== 0).sort((a, b) => Math.abs(delta(b)) - Math.abs(delta(a)))[0];
+  const item = (alert && data.menus.find(({ menu }) => menu.id === alert.menuId)) || moved || data.menus[0];
   if (!item) return null;
   const { menu, cost } = item;
-  const rising = alert?.menuId === menu.id ? alert : null;
-  const causes = rising ? rising.ingredientIds.map((id) => names.get(id) ?? id) : [];
+  const change = delta(item);
+  const changedNames = cost.lines
+    .filter((line) => line.cost !== null && line.previousCost !== null && (change > 0 ? line.cost > line.previousCost : line.cost < line.previousCost))
+    .map((line) => names.get(line.ingredientId) ?? line.ingredientId);
+  const changeText = change > 0 ? `이전보다 ${formatWon(change)} 높음` : change < 0 ? `이전보다 ${formatWon(-change)} 낮음` : null;
+  const cause =
+    changedNames.length === 0
+      ? null
+      : change > 0
+        ? `${changedNames.join(', ')} 구매 단가가 올랐어요`
+        : `${changedNames.join(', ')} 새 재고로 바뀌어 내려갔어요`;
 
   return (
     <Card variant="highlight" style={styles.hero}>
@@ -216,11 +278,11 @@ function HeroCard({ data, names }: { data: DashboardResponse; names: Map<string,
       <Text style={styles.heroBody}>
         {cost.total === null
           ? `계산된 부분 합계 ${formatWon(cost.partialTotal)}`
-          : [cost.ratio === null ? null : `원가율 ${Math.round(cost.ratio * 100)}%`, rising ? `이전보다 ${formatWon(rising.delta)} 높음` : null]
+          : [cost.ratio === null ? null : `원가율 ${Math.round(cost.ratio * 100)}%`, changeText]
               .filter(Boolean)
               .join(' · ') || '최근 구매 단가 기준'}
       </Text>
-      {causes.length > 0 ? <Text style={styles.heroCaption}>{causes.join(', ')} 구매 단가가 올랐어요</Text> : null}
+      {cause ? <Text style={styles.heroCaption}>{cause}</Text> : null}
       <Button
         label="원가 보기"
         onPress={() => router.push({ pathname: '/menus/[id]', params: { id: menu.id } })}
@@ -271,4 +333,9 @@ const styles = StyleSheet.create({
   list: { paddingVertical: 0 },
   listNotice: { paddingVertical: space.s5 },
   warnText: { ...typography.secondary, color: colors.warn, fontWeight: '600' },
+  settle: { gap: space.s3 },
+  settleHead: { flexDirection: 'row', alignItems: 'center', gap: space.s3 },
+  settleResult: { gap: space.s1, padding: space.s3, borderRadius: radius.sm, backgroundColor: colors.subtle },
+  changeText: { ...typography.bodyStrong, color: colors.primary },
+  errorText: { ...typography.caption, color: colors.loss },
 });

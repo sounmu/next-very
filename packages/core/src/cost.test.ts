@@ -1,14 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import {
   computeMenuCost, costAlert, currentAndPrevious, monthSpend,
-  previewWithPrice, priceChanges, priceHistory, ratioPercent,
+  previewWithPrice, priceChanges, ratioPercent,
 } from './cost';
+import {
+  consumption, nextSettleDate, priceHistory, settleDay, SETTLE_RANGE, stockOf,
+} from './inventory';
 import { seed } from './seed';
-import type { Ingredient, Menu, Purchase } from './types';
+import type { Ingredient, Menu, Purchase, Sale } from './types';
 
-const { menus, ingredients, purchases } = seed;
+const { menus, ingredients, purchases, sales } = seed;
 const jeyuk = menus[0];
 const pork = ingredients[0];
+const used = consumption(menus, ingredients, sales);
 
 function confirmedInvoice(): Purchase {
   const invoice = seed.demoInvoice;
@@ -23,6 +27,8 @@ function confirmedInvoice(): Purchase {
     invoiceId: invoice.id, rawName: item.rawName,
   };
 }
+
+const jeyukSale = (id: string, quantity: number): Sale => ({ id, menuId: jeyuk.id, date: '2026-10-31', quantity });
 
 describe('purchase price history', () => {
   it('sorts matching purchases by date then id without mutating inputs', () => {
@@ -46,6 +52,34 @@ describe('purchase price history', () => {
   });
 });
 
+describe('stock, first in first out', () => {
+  it('leaves 1.6kg of the 10/28 pork lot after the seeded October sales', () => {
+    const stock = stockOf(pork, purchases, used.get(pork.id));
+    expect(stock.remaining).toBeCloseTo(1600);
+    expect(stock.current).toMatchObject({ date: '2026-10-28', unitPricePerBase: 10 });
+    expect(stock.previous).toMatchObject({ date: '2026-10-07', unitPricePerBase: 9 });
+    expect(stock.next).toBeNull();
+  });
+
+  it('draws from the oldest lot first when nothing is used', () => {
+    expect(computeMenuCost(jeyuk, ingredients, purchases).lines[0]).toMatchObject({ cost: 1800, priceDate: '2026-10-07' });
+  });
+
+  it('splits a serving across two lots when the older one runs out mid-serving', () => {
+    const almostGone = new Map(used).set(pork.id, 19900);
+    const result = computeMenuCost(jeyuk, ingredients, [...purchases, confirmedInvoice()], almostGone);
+    expect(result.lines[0]).toMatchObject({ cost: 1900, priceDate: '2026-10-28', stockShort: false });
+    expect(result.total).toBe(3100);
+  });
+
+  it('prices a shortfall at the newest lot and flags it when stock is empty', () => {
+    const empty = new Map(used).set(pork.id, 20000);
+    const result = computeMenuCost(jeyuk, ingredients, purchases, empty);
+    expect(result.lines[0]).toMatchObject({ cost: 2000, unitPricePerBase: 10, stockShort: true });
+    expect(result.total).toBe(3200);
+  });
+});
+
 describe('menu costs', () => {
   it.each([
     ['jeyuk-deopbap', 3200, 3000, 32],
@@ -55,7 +89,7 @@ describe('menu costs', () => {
   ])('prices %s with rounded lines and prior prices', (id, total, previousTotal, percent) => {
     const menu = menus.find((candidate) => candidate.id === id);
     if (!menu) throw new Error(`Missing menu ${id}`);
-    const result = computeMenuCost(menu, ingredients, purchases);
+    const result = computeMenuCost(menu, ingredients, purchases, used);
     expect(result).toMatchObject({
       total, partialTotal: total, previousTotal, missing: [], unitIssues: [],
     });
@@ -65,16 +99,21 @@ describe('menu costs', () => {
 
   it('retains precise base prices and rounds each latte ingredient cost', () => {
     const latte = menus[3];
-    const result = computeMenuCost(latte, ingredients, purchases);
+    const result = computeMenuCost(latte, ingredients, purchases, used);
     expect(result.lines).toMatchObject([
       { baseQty: 250, unitPricePerBase: 2.8, cost: 700, priceDate: '2026-10-30', supplierId: 'hanbit' },
       { baseQty: 18, unitPricePerBase: 24.444, cost: 440 },
     ]);
   });
 
-  it('uses the confirmed demo invoice as the new price and preserves the prior total', () => {
-    const purchase = confirmedInvoice();
-    const result = computeMenuCost(jeyuk, ingredients, [...purchases, purchase]);
+  it('keeps the old cost after a cheaper receipt until the older stock is used', () => {
+    const withReceipt = [...purchases, confirmedInvoice()];
+    const right = computeMenuCost(jeyuk, ingredients, withReceipt, used);
+    expect(right).toMatchObject({ total: 3200 });
+    expect(right.lines[0]).toMatchObject({ supplierId: 'daesung', priceDate: '2026-10-28' });
+
+    const later = consumption(menus, ingredients, [...sales, jeyukSale('eight-more', 8)]);
+    const result = computeMenuCost(jeyuk, ingredients, withReceipt, later);
     expect(result).toMatchObject({ total: 3000, previousTotal: 3200 });
     expect(result.lines[0]).toMatchObject({ supplierId: 'hanuri', priceDate: '2026-10-31', cost: 1800 });
     expect(ratioPercent(result.total ?? 0, jeyuk.price)).toBe(30);
@@ -95,7 +134,7 @@ describe('menu costs', () => {
 
   it('flags a missing price while summing the known costs', () => {
     const withoutRice = purchases.filter((purchase) => purchase.ingredientId !== 'rice');
-    const result = computeMenuCost(jeyuk, ingredients, withoutRice);
+    const result = computeMenuCost(jeyuk, ingredients, withoutRice, used);
     expect(result).toMatchObject({
       total: null, partialTotal: 2900, previousTotal: null, ratio: null,
       missing: ['rice'], unitIssues: [],
@@ -105,7 +144,7 @@ describe('menu costs', () => {
 
   it('ignores a later incompatible purchase instead of replacing the confirmed price', () => {
     const wrong: Purchase = { ...purchases[1], id: 'wrong', date: '2026-10-31', packUnit: 'L', amount: 1 };
-    const result = computeMenuCost(jeyuk, ingredients, [...purchases, wrong]);
+    const result = computeMenuCost(jeyuk, ingredients, [...purchases, wrong], used);
     expect(result).toMatchObject({ total: 3200, previousTotal: 3000 });
   });
 
@@ -128,10 +167,10 @@ describe('menu costs', () => {
 describe('price previews', () => {
   it('previews pork at nine won per gram without changing actual purchases', () => {
     const before = JSON.stringify(seed);
-    const result = previewWithPrice(jeyuk, ingredients, purchases, pork.id, 9);
+    const result = previewWithPrice(jeyuk, ingredients, purchases, pork.id, 9, used);
     expect(result).toMatchObject({ total: 3000, previousTotal: 3200 });
     expect(result.lines[0]).toMatchObject({ cost: 1800, previousCost: 2000, unitPricePerBase: 9 });
-    expect(computeMenuCost(jeyuk, ingredients, purchases).total).toBe(3200);
+    expect(computeMenuCost(jeyuk, ingredients, purchases, used).total).toBe(3200);
     expect(JSON.stringify(seed)).toBe(before);
   });
 
@@ -150,7 +189,7 @@ describe('price previews', () => {
 
 describe('dashboard calculations', () => {
   it('reports pork rising from nine to ten won per gram', () => {
-    const changes = priceChanges(ingredients, purchases);
+    const changes = priceChanges(ingredients, purchases, used);
     expect(changes).toHaveLength(1);
     expect(changes[0]).toMatchObject({
       ingredientId: pork.id, previousUnitPrice: 9, currentUnitPrice: 10,
@@ -164,20 +203,71 @@ describe('dashboard calculations', () => {
       ...jeyuk, id: 'larger', name: '곱빼기',
       recipe: jeyuk.recipe.map((line) => ({ ...line, amount: line.amount * 2 })),
     };
-    const result = costAlert([...menus, larger], ingredients, purchases);
+    const result = costAlert([...menus, larger], ingredients, purchases, used);
     expect(result).toEqual({ menuId: 'larger', menuName: '곱빼기', delta: 400, ingredientIds: [pork.id] });
   });
 
-  it('returns no alert after the demo price decrease', () => {
-    expect(costAlert(menus, ingredients, [...purchases, confirmedInvoice()])).toBeNull();
+  it('keeps the alert after a cheaper receipt and drops it once the cheaper stock is in use', () => {
+    const withReceipt = [...purchases, confirmedInvoice()];
+    expect(costAlert(menus, ingredients, withReceipt, used)?.menuId).toBe(jeyuk.id);
+    const later = consumption(menus, ingredients, [...sales, jeyukSale('eight-more', 8)]);
+    expect(costAlert(menus, ingredients, withReceipt, later)).toBeNull();
   });
 
   it('sums only October purchases when other months are present', () => {
     const november: Purchase = { ...purchases[0], id: 'november', date: '2026-11-01' };
-    expect(monthSpend([...purchases, november], '2026-10')).toBe(786044);
+    expect(monthSpend([...purchases, november], '2026-10')).toBe(853044);
   });
 
   it('returns zero for a month without purchases', () => {
     expect(monthSpend(purchases, '2026-09')).toBe(0);
+  });
+});
+
+describe('daily settlement', () => {
+  const withReceipt = [...purchases, confirmedInvoice()];
+
+  it('replays the same day the same way', () => {
+    expect(settleDay(menus, ingredients, withReceipt, sales, '2026-10-31'))
+      .toEqual(settleDay(menus, ingredients, withReceipt, sales, '2026-10-31'));
+  });
+
+  it('draws targets in range and never uses more stock than was bought', () => {
+    let all = [...sales];
+    let date = nextSettleDate(all, '2026-10-31');
+    for (let day = 0; day < 10; day += 1) {
+      const lines = settleDay(menus, ingredients, withReceipt, all, date);
+      for (const line of lines) {
+        expect(line.target).toBeGreaterThanOrEqual(SETTLE_RANGE.min);
+        expect(line.target).toBeLessThanOrEqual(SETTLE_RANGE.max);
+        expect(line.quantity).toBeLessThanOrEqual(line.target);
+      }
+      all = [...all, ...lines.filter((line) => line.quantity > 0)
+        .map((line) => ({ id: `${date}-${line.menuId}`, menuId: line.menuId, date, quantity: line.quantity }))];
+      date = nextSettleDate(all, date);
+    }
+    const totalUsed = consumption(menus, ingredients, all);
+    for (const ingredient of ingredients) {
+      const bought = stockOf(ingredient, withReceipt).remaining;
+      expect(totalUsed.get(ingredient.id) ?? 0).toBeLessThanOrEqual(bought + 1e-6);
+    }
+  });
+
+  it('lowers 제육덮밥 only on the second settlement after the cheaper receipt', () => {
+    const day1 = settleDay(menus, ingredients, withReceipt, sales, '2026-10-31');
+    const after1 = [...sales, ...day1.map((line) => ({ id: `d1-${line.menuId}`, menuId: line.menuId, date: '2026-10-31', quantity: line.quantity }))]
+      .filter((sale) => sale.quantity > 0);
+    expect(computeMenuCost(jeyuk, ingredients, withReceipt, consumption(menus, ingredients, after1)).total).toBe(3200);
+
+    expect(nextSettleDate(after1, '2026-10-31')).toBe('2026-11-01');
+    const day2 = settleDay(menus, ingredients, withReceipt, after1, '2026-11-01');
+    const after2 = [...after1, ...day2.map((line) => ({ id: `d2-${line.menuId}`, menuId: line.menuId, date: '2026-11-01', quantity: line.quantity }))]
+      .filter((sale) => sale.quantity > 0);
+    expect(computeMenuCost(jeyuk, ingredients, withReceipt, consumption(menus, ingredients, after2))).toMatchObject({ total: 3000, previousTotal: 3200 });
+  });
+
+  it('starts on the given day when nothing was sold yet', () => {
+    expect(nextSettleDate([], '2026-10-31')).toBe('2026-10-31');
+    expect(nextSettleDate(sales, '2026-10-31')).toBe('2026-10-31');
   });
 });

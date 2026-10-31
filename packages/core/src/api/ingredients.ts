@@ -29,10 +29,21 @@ export const IngredientHistoryItemSchema = PurchaseSchema.extend({
 });
 export type IngredientHistoryItem = z.infer<typeof IngredientHistoryItemSchema>;
 
+/** One purchase as stock, base units, oldest first. */
+export const StockLotSchema = z.object({
+  purchaseId: IdSchema,
+  date: IsoDateSchema,
+  unitPricePerBase: z.number(),
+  quantity: z.number().nonnegative(),
+  remaining: z.number().nonnegative(),
+});
+export type StockLot = z.infer<typeof StockLotSchema>;
+
 /** GET /api/ingredients/[id]. `menus` are the menus whose recipe uses the ingredient. */
 export const IngredientDetailResponseSchema = z.object({
   ingredient: IngredientSchema,
   history: z.array(IngredientHistoryItemSchema),
+  stock: z.object({ remaining: z.number().nonnegative(), lots: z.array(StockLotSchema) }),
   menus: z.array(MenuSchema),
   marketIndex: MarketIndexSchema.nullable(),
 });

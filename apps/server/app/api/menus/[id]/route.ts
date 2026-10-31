@@ -1,4 +1,4 @@
-import { computeMenuCost, type Menu } from "@marginlog/core";
+import { computeMenuCost, consumption, soldByMenu, stockOf, type Menu } from "@marginlog/core";
 import { MenuDetailResponseSchema, MenuResponseSchema } from "@marginlog/core/src/api/menus";
 import { eq } from "drizzle-orm";
 import { getDb } from "../../../../db/client";
@@ -17,13 +17,27 @@ export async function GET(_request: Request, { params }: Context) {
   const menu = state.menus.find((m) => m.id === id);
   if (!menu) return menuNotFound();
 
-  const cost = computeMenuCost(menu, state.ingredients, state.purchases);
+  const used = consumption(state.menus, state.ingredients, state.sales);
+  const cost = computeMenuCost(menu, state.ingredients, state.purchases, used);
   const recipeIds = new Set(menu.recipe.map((line) => line.ingredientId));
+  const stock = state.ingredients
+    .filter((ingredient) => recipeIds.has(ingredient.id))
+    .map((ingredient) => {
+      const { remaining, current, next } = stockOf(ingredient, state.purchases, used.get(ingredient.id) ?? 0);
+      return {
+        ingredientId: ingredient.id,
+        remaining,
+        current: current && { date: current.date, unitPricePerBase: current.unitPricePerBase, remaining: current.remaining },
+        next: next && { date: next.date, unitPricePerBase: next.unitPricePerBase },
+      };
+    });
   const supplierIds = new Set(cost.lines.flatMap((line) => (line.supplierId === null ? [] : [line.supplierId])));
 
   const body = MenuDetailResponseSchema.parse({
     menu,
     cost,
+    sold: soldByMenu(state.sales).get(menu.id) ?? 0,
+    stock,
     ingredients: state.ingredients.filter((ingredient) => recipeIds.has(ingredient.id)),
     suppliers: state.suppliers.filter((supplier) => supplierIds.has(supplier.id)),
   });

@@ -1,4 +1,5 @@
 import { formatDateKo, formatQty, formatUnitPrice, type Ingredient, type MenuCostLine, type Supplier } from '@marginlog/core';
+import type { MenuStock } from '@marginlog/core/src/api/menus';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -42,15 +43,24 @@ function previousText(total: number, previous: number): string {
   return `이전 ${formatWon(previous)}보다 ${formatWon(Math.abs(delta))} ${delta > 0 ? '높음' : '낮음'}`;
 }
 
+function stockText(line: MenuCostLine, stock: MenuStock | undefined, ingredient: Ingredient): string | null {
+  if (line.stockShort) return '재고 부족 · 마지막 구매 단가 적용';
+  if (!stock?.current) return null;
+  const left = `이 재고 ${formatQty(Math.round(stock.current.remaining), ingredient.baseUnit)} 남음`;
+  return stock.next ? `${left} · 다음 재고 ${formatUnitPrice(stock.next.unitPricePerBase, ingredient.baseUnit)}` : left;
+}
+
 function CostLine({
   line,
   ingredient,
   supplier,
+  stock,
   last,
 }: {
   line: MenuCostLine;
   ingredient: Ingredient | undefined;
   supplier: Supplier | undefined;
+  stock: MenuStock | undefined;
   last: boolean;
 }) {
   const name = ingredient?.name ?? '알 수 없는 재료';
@@ -69,11 +79,12 @@ function CostLine({
   if (line.issue === 'no-price' || line.unitPricePerBase === null || line.cost === null || !ingredient) {
     return <Row label={name} hint={qty} value={<Text style={styles.warn}>단가 등록 필요</Text>} divider={!last} />;
   }
-  const source = [supplier?.name, line.priceDate ? `${formatDateKo(line.priceDate)} 구매` : null].filter(Boolean).join(' · ');
+  const source = [supplier?.name, line.priceDate ? `${formatDateKo(line.priceDate)} 구매분` : null].filter(Boolean).join(' · ');
+  const stockLine = stockText(line, stock, ingredient);
   return (
     <Row
       label={name}
-      hint={`${qty} × ${formatUnitPrice(line.unitPricePerBase, ingredient.baseUnit)}${source ? `\n${source}` : ''}`}
+      hint={[`${qty} × ${formatUnitPrice(line.unitPricePerBase, ingredient.baseUnit)}`, source, stockLine].filter(Boolean).join('\n')}
       value={formatWon(line.cost)}
       divider={!last}
     />
@@ -120,7 +131,7 @@ export default function MenuCostDetailScreen() {
     );
   }
 
-  const { menu, cost, ingredients, suppliers } = query.data;
+  const { menu, cost, sold, stock, ingredients, suppliers } = query.data;
   const editRecipe = () => router.push({ pathname: '/recipe/[menuId]', params: { menuId: menu.id } });
   const hasIssues = cost.missing.length > 0 || cost.unitIssues.length > 0;
   const risen = cost.lines
@@ -142,7 +153,7 @@ export default function MenuCostDetailScreen() {
       <Header
         backLabel="메뉴 원가"
         title={menu.name}
-        subtitle={`판매가 ${formatWon(menu.price)} · ${menu.servingLabel} 기준`}
+        subtitle={`판매가 ${formatWon(menu.price)} · ${menu.servingLabel} 기준 · 누적 ${sold}개 판매`}
       />
 
       <Card variant="highlight">
@@ -167,7 +178,7 @@ export default function MenuCostDetailScreen() {
             </Text>
           </>
         )}
-        <Text style={styles.heroCaption}>최근 구매 단가 기준 · 배송비 제외</Text>
+        <Text style={styles.heroCaption}>남은 재고의 구매 단가 기준(먼저 산 것부터) · 배송비 제외</Text>
       </Card>
 
       <SectionHeader title="재료별 식재료비" />
@@ -181,6 +192,7 @@ export default function MenuCostDetailScreen() {
               line={line}
               ingredient={ingredients.find((item) => item.id === line.ingredientId)}
               supplier={suppliers.find((item) => item.id === line.supplierId)}
+              stock={stock.find((item) => item.ingredientId === line.ingredientId)}
               last={index === cost.lines.length - 1 && !hasIssues}
             />
           ))

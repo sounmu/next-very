@@ -6,6 +6,7 @@ import { resetAndSeed } from "../lib/seed";
 
 // Every MarginLog table, v1 and v2. Dropping with CASCADE lets drizzle-kit recreate them without rename prompts.
 const TABLES = [
+  "sales",
   "purchases",
   "cart_items",
   "order_lines",

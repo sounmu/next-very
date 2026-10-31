@@ -70,9 +70,10 @@ export default function IngredientDetailScreen() {
     );
   }
 
-  const { ingredient, history, menus } = detail.data;
+  const { ingredient, history, menus, stock } = detail.data;
   const sorted = [...history].sort((a, b) => (a.date === b.date ? 0 : a.date < b.date ? 1 : -1));
-  const latest = sorted.find((item) => item.unitPricePerBase !== null);
+  const inUse = stock.lots.find((lot) => lot.remaining > 0) ?? stock.lots.at(-1);
+  const inUseFrom = inUse ? history.find((item) => item.id === inUse.purchaseId) : undefined;
 
   return (
     <Screen>
@@ -85,13 +86,14 @@ export default function IngredientDetailScreen() {
       {detail.isError ? <Text style={styles.errorText}>최신 정보로 갱신하지 못했어요. 이전에 받은 내용을 보여 줘요</Text> : null}
 
       <Card variant="highlight" style={styles.highlight}>
-        <Text style={styles.highlightLabel}>최근 구매 단가</Text>
-        {latest && latest.unitPricePerBase !== null ? (
+        <Text style={styles.highlightLabel}>지금 쓰는 재고 단가</Text>
+        {inUse ? (
           <>
-            <Text style={typography.display}>{formatUnitPrice(latest.unitPricePerBase, ingredient.baseUnit)}</Text>
+            <Text style={typography.display}>{formatUnitPrice(inUse.unitPricePerBase, ingredient.baseUnit)}</Text>
             <Text style={styles.highlightBody}>
-              {formatDateKo(latest.date)} {latest.supplierName} 구매 · 최근 확정 구매 기준
+              {`${formatDateKo(inUse.date)}${inUseFrom ? ` ${inUseFrom.supplierName}` : ''} 구매분 · 재고 ${formatQty(Math.round(stock.remaining), ingredient.baseUnit)} 남음`}
             </Text>
+            {stock.remaining === 0 ? <Text style={styles.highlightBody}>재고 없음 · 마지막 구매 단가로 계산해요</Text> : null}
           </>
         ) : (
           <>
@@ -104,6 +106,25 @@ export default function IngredientDetailScreen() {
       </Card>
 
       <Button variant="secondary" label="가격 비교" onPress={() => router.push({ pathname: '/compare/[ingredientId]', params: { ingredientId: ingredient.id } })} />
+
+      <SectionHeader title="재고" />
+      <Card>
+        {stock.lots.length === 0 ? (
+          <Notice>확정된 구매가 없어 재고가 없어요</Notice>
+        ) : (
+          [...stock.lots].reverse().map((lot, index) => (
+            <ListRow
+              key={lot.purchaseId}
+              title={`${formatDateKo(lot.date)} 구매분`}
+              subtitle={`${formatQty(Math.round(lot.quantity), ingredient.baseUnit)} 중 ${formatQty(Math.round(lot.remaining), ingredient.baseUnit)} 남음`}
+              value={formatUnitPrice(lot.unitPricePerBase, ingredient.baseUnit)}
+              valueCaption={lot.purchaseId === inUse?.purchaseId && lot.remaining > 0 ? '지금 사용' : lot.remaining === 0 ? '다 씀' : '대기'}
+              divider={index < stock.lots.length - 1}
+            />
+          ))
+        )}
+      </Card>
+      <Notice>먼저 산 재고부터 쓰고, 그 재고의 단가로 메뉴 원가를 계산해요</Notice>
 
       <SectionHeader title="구매 단가 기록" />
       <Card>

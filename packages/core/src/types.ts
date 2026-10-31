@@ -49,6 +49,15 @@ export interface Purchase {
   rawName?: string;
 }
 
+/** Servings of one menu sold on one day. In the demo they come from the 정산하기 button. */
+export interface Sale {
+  id: string;
+  menuId: string;
+  /** YYYY-MM-DD */
+  date: string;
+  quantity: number;
+}
+
 export interface RecipeLine {
   ingredientId: string;
   amount: number;
@@ -74,6 +83,8 @@ export interface MenuCostLine {
   cost: Won | null;
   previousCost: Won | null;
   issue: null | 'no-price' | 'unit-mismatch';
+  /** True when stock runs out before this serving is covered; the shortfall uses the newest price. */
+  stockShort: boolean;
 }
 
 export interface MenuCost {

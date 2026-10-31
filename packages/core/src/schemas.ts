@@ -17,6 +17,7 @@ import type {
   PriceChange,
   Purchase,
   RecipeLine,
+  Sale,
   Supplier,
   SupplierProduct,
   Unit,
@@ -74,6 +75,13 @@ export const RecipeLineSchema = z.object({
   unit: UnitSchema,
 }) satisfies z.ZodType<RecipeLine>;
 
+export const SaleSchema = z.object({
+  id: IdSchema,
+  menuId: IdSchema,
+  date: IsoDateSchema,
+  quantity: z.number().int().positive(),
+}) satisfies z.ZodType<Sale>;
+
 export const MenuSchema = z.object({
   id: IdSchema,
   name: z.string().min(1),
@@ -93,6 +101,7 @@ export const MenuCostLineSchema = z.object({
   cost: WonSchema.nullable(),
   previousCost: WonSchema.nullable(),
   issue: z.enum(['no-price', 'unit-mismatch']).nullable(),
+  stockShort: z.boolean(),
 }) satisfies z.ZodType<MenuCostLine>;
 
 export const MenuCostSchema = z.object({

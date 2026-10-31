@@ -13,6 +13,7 @@ import {
   purchases,
   quotes,
   recipeLines,
+  sales,
   supplierProducts,
   suppliers,
 } from "../db/schema";
@@ -20,6 +21,7 @@ import {
 /** Deletes every row (children first) and inserts the core demo seed, in one transaction. */
 export async function resetAndSeed(db: Db): Promise<void> {
   await db.transaction(async (tx) => {
+    await tx.delete(sales);
     await tx.delete(purchases);
     await tx.delete(cartItems);
     await tx.delete(orderLines);
@@ -88,6 +90,10 @@ export async function resetAndSeed(db: Db): Promise<void> {
           position,
         })),
       ),
+    );
+
+    await tx.insert(sales).values(
+      seed.sales.map((s) => ({ id: s.id, menuId: s.menuId, date: s.date, quantity: s.quantity })),
     );
 
     await tx.insert(supplierProducts).values(

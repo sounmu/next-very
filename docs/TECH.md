@@ -79,6 +79,7 @@ packages/
   core/src/
     types.ts                           도메인 타입 (계약)
     units.ts                           Unit, baseOf, toBase
+    inventory.ts                       재고 묶음(선입선출), consumption, stockOf, drawCost, settleDay, nextSettleDate, seededRandom
     cost.ts                            원가 계산, costAlert, priceChanges, previewWithPrice
     compare.ts                         compareOffers
     order.ts                           buildOrder
@@ -149,12 +150,13 @@ interface MenuCost {
 
 ### 원가 규칙 (`cost.ts`)
 
-- 현재 단가: 재료의 기본 단위와 같은 계열인 확인된 구매 중 가장 최근 것(날짜, 그다음 id). 직전 단가는 그 앞의 것. 다른 계열의 구매는 단가 계산에서 뺀다.
-- 줄: `baseQty = toBase(line.amount, line.unit, ingredient.baseUnit)`. null이면 `'unit-mismatch'`, 단가가 없으면 `'no-price'`, 아니면 `cost = Math.round(baseQty * unitPricePerBase)`.
+- 재고(`inventory.ts`): 기본 단위와 같은 계열인 확인된 구매 하나가 묶음(`Lot`) 하나다(날짜, 그다음 id). `consumption(menus, ingredients, sales)`는 판매 수 x 지금 레시피 사용량을 재료별 기본 단위 합으로 낸다. `stockOf(ingredient, purchases, used)`는 그 양을 오래된 묶음부터 빼고 `{ lots, current, previous, next, last, remaining }`을 돌려준다. 재고는 저장하지 않고 읽을 때마다 계산한다.
+- 원가 함수는 모두 마지막 인자로 `used`(`Usage`, 재료 id -> 사용량)를 받는다. 생략하면 아무것도 안 쓴 상태다. 서버는 항상 `consumption()` 결과를 넘긴다.
+- 줄: `baseQty = toBase(line.amount, line.unit, ingredient.baseUnit)`. null이면 `'unit-mismatch'`, 구매가 없으면 `'no-price'`, 아니면 `cost = Math.round(drawCost(stock, baseQty).cost)`. `drawCost`는 오래된 묶음부터 꺼내 묶음 사이를 나눠 계산하고, 재고 전체가 모자란 양은 마지막 묶음 단가로 계산해 `stockShort: true`를 준다. `unitPricePerBase`와 `priceDate`, `supplierId`는 지금 쓰는 묶음(없으면 마지막 묶음)의 값이다. 직전 단가는 `stock.previous`.
 - `total` = 반올림한 줄 재료비의 합. `previousTotal`은 total이 있고 적어도 한 줄에 직전 단가가 있을 때만 값이 있다. 직전 단가가 없는 줄은 현재 재료비를 쓴다.
 - `ratioPercent(total, price)` = `Math.round(total / price * 100)`.
-- `costAlert(menus, ingredients, purchases)`: `total - previousTotal`이 가장 크게 양수인 메뉴, 그 차이, 현재 단가가 직전보다 높은 ingredientId 목록. 없으면 null.
-- `priceChanges(ingredients, purchases)`: 현재와 직전 단가가 모두 있는 재료마다 `{ ingredientId, previousUnitPrice, currentUnitPrice, changeRate, currentDate, previousDate }`. `changeRate = current / previous - 1`.
+- `costAlert(menus, ingredients, purchases, used)`: `total - previousTotal`이 가장 크게 양수인 메뉴, 그 차이, 현재 단가가 직전보다 높은 ingredientId 목록. 없으면 null.
+- `priceChanges(ingredients, purchases, used)`: 지금 쓰는 묶음과 그 앞 묶음이 모두 있는 재료마다 `{ ingredientId, previousUnitPrice, currentUnitPrice, changeRate, currentDate, previousDate }`. `changeRate = current / previous - 1`.
 - `previewWithPrice(menu, ingredients, purchases, ingredientId, unitPricePerBase)`: 그 재료의 현재 단가를 바꾼 가정의 MenuCost. `previousTotal`은 실제 현재 total. 아무것도 저장하지 않는다.
 
 ### 표시 형식 (`format.ts`)
@@ -229,6 +231,7 @@ interface Invoice { id: string; hasImage: boolean; supplierId?: string; date?: s
 | `ingredient_aliases` | alias (PK), ingredient_id | 한 별칭은 한 재료에만 |
 | `suppliers` | id, name, phone, memo, created_at | |
 | `purchases` | id, ingredient_id, supplier_id, date, pack_size, pack_unit, quantity, amount, status, source, invoice_id, order_line_id, raw_name | `order_line_id` UNIQUE |
+| `sales` | id, menu_id, date, quantity | 하루 메뉴별 판매 수. id는 `sale-{날짜}-{menuId}`라 같은 날 두 번 정산되지 않는다. 메뉴를 지우면 같이 지운다 |
 | `invoices` | id, supplier_id, date, status, extraction(jsonb), is_demo, created_at | |
 | `invoice_images` | invoice_id (PK), mime, data(bytea) | 사진은 Postgres에 둔다. `hasImage`는 이 행의 유무 |
 | `menus` | id, name, price, serving_label | |
@@ -248,7 +251,8 @@ Supabase transaction pooler(6543)를 쓰므로 postgres.js에 `prepare: false`�
 | 메서드 | 경로 | 화면 | 내용 |
 |---|---|---|---|
 | GET | `/api/health` | 없음 | 서버와 DB 연결, OCR 모드(실제/데모) 확인 |
-| GET | `/api/dashboard` | 홈 | 이번 달 구매 합계, 메뉴별 MenuCost와 원가율, costAlert, priceChanges, 확인 대기 명세서 수, 최근 구매 3건 |
+| GET | `/api/dashboard` | 홈 | 이번 달 구매 합계, 메뉴별 MenuCost와 원가율과 누적 판매 수(`sold`), costAlert, priceChanges, 다음 정산 날짜(`nextSettleDate`), 확인 대기 명세서 수 |
+| POST | `/api/settle` | 홈 | 본문 없음. `settleDay()`로 하루 판매를 만들어 `sales`에 저장하고 `{ date, nextDate, lines: [{ menuId, menuName, target, quantity }], changes }`를 돌려준다. 같은 날짜가 이미 있으면 409 |
 | GET | `/api/purchases` | 기록 | 구매 기록 목록. `?q=`(재료 이름, 별칭, 구매처)와 `?ingredientId=` 검색 |
 | POST | `/api/purchases` | 기록 | 직접 입력한 구매 기록 저장(`source: 'manual'`) |
 | GET | `/api/purchases/[id]` | 구매 기록 수정 | 구매 기록 한 건 |

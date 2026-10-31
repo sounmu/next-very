@@ -36,5 +36,6 @@ export const API_PATHS = {
   orderCreate: 'POST /api/orders (no body, orders the whole cart)',
   orderDetail: 'GET /api/orders/[id]',
   orderReceive: 'POST /api/orders/[id]/receive',
+  settle: 'POST /api/settle (no body, records one demo day of sales)',
 } as const;
 export type ApiPathKey = keyof typeof API_PATHS;

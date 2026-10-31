@@ -7,6 +7,7 @@ import type {
   Order,
   Purchase,
   Quote,
+  Sale,
   Supplier,
   SupplierProduct,
 } from "@marginlog/core";
@@ -25,6 +26,7 @@ import {
   purchases,
   quotes,
   recipeLines,
+  sales,
   supplierProducts,
   suppliers,
 } from "../db/schema";
@@ -36,6 +38,7 @@ export interface State {
   menus: Menu[];
   products: SupplierProduct[];
   quotes: Quote[];
+  sales: Sale[];
 }
 
 // Optional fields in core are absent, never null.
@@ -54,6 +57,7 @@ export async function loadState(db: Db): Promise<State> {
     .from(supplierProducts)
     .orderBy(asc(supplierProducts.ingredientId), asc(supplierProducts.id));
   const quoteRows = await db.select().from(quotes).orderBy(asc(quotes.date), asc(quotes.id));
+  const saleRows = await db.select().from(sales).orderBy(asc(sales.date), asc(sales.id));
 
   return {
     ingredients: ingredientRows.map((r) => ({
@@ -121,6 +125,7 @@ export async function loadState(db: Db): Promise<State> {
       terms: opt(r.terms),
       date: r.date,
     })),
+    sales: saleRows.map((r) => ({ id: r.id, menuId: r.menuId, date: r.date, quantity: r.quantity })),
   };
 }
 

@@ -1,6 +1,7 @@
 export * from './types';
 export * from './units';
 export * from './cost';
+export * from './inventory';
 export * from './compare';
 export * from './order';
 export * from './format';

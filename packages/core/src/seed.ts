@@ -1,4 +1,4 @@
-import type { Ingredient, Invoice, MarketIndex, Menu, Purchase, Supplier, SupplierProduct } from './types';
+import type { Ingredient, Invoice, MarketIndex, Menu, Purchase, Sale, Supplier, SupplierProduct } from './types';
 
 /** 한끼식당 demo, as of 2026-10-31. Catalog and orders are not live supplier services. */
 const ingredients: Ingredient[] = [
@@ -33,8 +33,8 @@ const purchases: Purchase[] = [
   { id: 'purchase-pork-shoulder-2026-10-28', ingredientId: 'pork-shoulder', supplierId: 'daesung', date: '2026-10-28', packSize: 10, packUnit: 'kg', quantity: 1, amount: 100000, status: 'confirmed', source: 'receipt' },
   { id: 'purchase-rice-2026-10-07', ingredientId: 'rice', supplierId: 'daesung', date: '2026-10-07', packSize: 20, packUnit: 'kg', quantity: 1, amount: 60000, status: 'confirmed', source: 'receipt' },
   { id: 'purchase-onion-2026-10-07', ingredientId: 'onion', supplierId: 'daesung', date: '2026-10-07', packSize: 15, packUnit: 'kg', quantity: 1, amount: 45000, status: 'confirmed', source: 'receipt' },
-  { id: 'purchase-green-onion-2026-10-07', ingredientId: 'green-onion', supplierId: 'daesung', date: '2026-10-07', packSize: 1, packUnit: 'kg', quantity: 2, amount: 10000, status: 'confirmed', source: 'receipt' },
-  { id: 'purchase-jeyuk-sauce-2026-10-07', ingredientId: 'jeyuk-sauce', supplierId: 'daesung', date: '2026-10-07', packSize: 2, packUnit: 'kg', quantity: 1, amount: 26000, status: 'confirmed', source: 'receipt' },
+  { id: 'purchase-green-onion-2026-10-07', ingredientId: 'green-onion', supplierId: 'daesung', date: '2026-10-07', packSize: 1, packUnit: 'kg', quantity: 5, amount: 25000, status: 'confirmed', source: 'receipt' },
+  { id: 'purchase-jeyuk-sauce-2026-10-07', ingredientId: 'jeyuk-sauce', supplierId: 'daesung', date: '2026-10-07', packSize: 2, packUnit: 'kg', quantity: 3, amount: 78000, status: 'confirmed', source: 'receipt' },
   { id: 'purchase-kimchi-2026-10-07', ingredientId: 'kimchi', supplierId: 'daesung', date: '2026-10-07', packSize: 10, packUnit: 'kg', quantity: 1, amount: 60000, status: 'confirmed', source: 'receipt' },
   { id: 'purchase-pork-neck-2026-10-07', ingredientId: 'pork-neck', supplierId: 'daesung', date: '2026-10-07', packSize: 5, packUnit: 'kg', quantity: 1, amount: 65000, status: 'confirmed', source: 'receipt' },
   { id: 'purchase-tofu-2026-10-07', ingredientId: 'tofu', supplierId: 'daesung', date: '2026-10-07', packSize: 2, packUnit: 'kg', quantity: 2, amount: 16000, status: 'confirmed', source: 'receipt' },
@@ -118,8 +118,20 @@ const demoInvoice: Invoice = {
   },
 };
 
+/**
+ * October sales through 10/30. They use up the 10/07 pork lot (100g당 900원) and leave 1.6kg of
+ * the 10/28 lot (100g당 1,000원), so 제육덮밥 starts at 3,200원 and stays there after a cheaper
+ * receipt until two settlements use the rest.
+ */
+const sales: Sale[] = [
+  { id: 'sale-2026-10-30-jeyuk-deopbap', menuId: 'jeyuk-deopbap', date: '2026-10-30', quantity: 92 },
+  { id: 'sale-2026-10-30-kimchi-jjigae', menuId: 'kimchi-jjigae', date: '2026-10-30', quantity: 20 },
+  { id: 'sale-2026-10-30-gyeran-mari', menuId: 'gyeran-mari', date: '2026-10-30', quantity: 20 },
+  { id: 'sale-2026-10-30-cafe-latte', menuId: 'cafe-latte', date: '2026-10-30', quantity: 10 },
+];
+
 const marketIndex: Record<string, MarketIndex> = {
   'pork-shoulder': { mine: [100, 100, 100, 111], market: [100, 99, 98, 97] },
 };
 
-export const seed = { ingredients, suppliers, purchases, menus, products, demoInvoice, marketIndex };
+export const seed = { ingredients, suppliers, purchases, menus, products, sales, demoInvoice, marketIndex };

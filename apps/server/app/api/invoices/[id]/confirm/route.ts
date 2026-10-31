@@ -1,4 +1,4 @@
-import { baseOf, computeMenuCost, unitLabel, type Ingredient, type Purchase } from "@marginlog/core";
+import { baseOf, computeMenuCost, consumption, unitLabel, type Ingredient, type Purchase } from "@marginlog/core";
 import { ConfirmResultSchema, InvoiceConfirmSchema } from "@marginlog/core/src/api/invoices";
 import { eq } from "drizzle-orm";
 import { getDb } from "../../../../../db/client";
@@ -89,9 +89,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const allIngredients = [...before.ingredients, ...result.created];
     const after = [...before.purchases, ...result.rows];
+    const used = consumption(before.menus, before.ingredients, before.sales);
     const changes = before.menus.flatMap((menu) => {
-      const was = computeMenuCost(menu, before.ingredients, before.purchases);
-      const now = computeMenuCost(menu, allIngredients, after);
+      const was = computeMenuCost(menu, before.ingredients, before.purchases, used);
+      const now = computeMenuCost(menu, allIngredients, after, used);
       return was.total === now.total ? [] : [{ menuId: menu.id, menuName: menu.name, before: was, after: now }];
     });
 

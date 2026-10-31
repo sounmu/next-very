@@ -197,6 +197,16 @@ export const recipeLines = pgTable(
   (t) => [primaryKey({ columns: [t.menuId, t.ingredientId] })],
 );
 
+/** Servings sold per menu per day. Stock and FIFO cost are derived from purchases minus these, never stored. */
+export const sales = pgTable("sales", {
+  id: text("id").primaryKey(),
+  menuId: text("menu_id")
+    .notNull()
+    .references(() => menus.id, { onDelete: "cascade" }),
+  date: date("date", { mode: "string" }).notNull(),
+  quantity: integer("quantity").notNull(),
+});
+
 /** 4-week index per ingredient, week 0..3, first week = 100. */
 export const marketIndex = pgTable(
   "market_index",

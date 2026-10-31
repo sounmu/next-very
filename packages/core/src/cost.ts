@@ -1,16 +1,12 @@
+import { drawCost, priceHistory, stockOf } from './inventory';
 import type {
   CostAlert, Ingredient, Menu, MenuCost, MenuCostLine, PriceChange, Purchase, Won,
 } from './types';
-import { baseOf, toBase, unitPricePerBase } from './units';
+import { toBase } from './units';
 
-const compare = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
-
-export function priceHistory(ingredient: Ingredient, purchases: readonly Purchase[]): Purchase[] {
-  return purchases
-    .filter((p) => p.ingredientId === ingredient.id && p.status === 'confirmed'
-      && baseOf(p.packUnit) === ingredient.baseUnit)
-    .sort((a, b) => compare(a.date, b.date) || compare(a.id, b.id));
-}
+/** Base quantity already used per ingredient id, from `consumption()`. */
+export type Usage = ReadonlyMap<string, number>;
+const NO_USAGE: Usage = new Map();
 
 export function currentAndPrevious(
   ingredient: Ingredient,
@@ -41,29 +37,33 @@ function assemble(menu: Menu, lines: MenuCostLine[]): MenuCost {
   };
 }
 
-/** Only confirmed purchases of the ingredient's base dimension establish prices. */
+/**
+ * First in, first out: each line is priced from the oldest stock left after `used`, split
+ * across lots when one runs out mid-serving. "Previous" is the lot used up just before.
+ */
 export function computeMenuCost(
   menu: Menu,
   ingredients: readonly Ingredient[],
   purchases: readonly Purchase[],
+  used: Usage = NO_USAGE,
 ): MenuCost {
   const lines = menu.recipe.map((line): MenuCostLine => {
     const ingredient = ingredients.find((item) => item.id === line.ingredientId);
     const baseQty = ingredient ? toBase(line.amount, line.unit, ingredient.baseUnit) : null;
-    const { current, previous } = ingredient
-      ? currentAndPrevious(ingredient, purchases)
-      : { current: null, previous: null };
-    const price = current && ingredient ? unitPricePerBase(current, ingredient.baseUnit) : null;
-    const previousPrice = previous && ingredient ? unitPricePerBase(previous, ingredient.baseUnit) : null;
+    const stock = ingredient ? stockOf(ingredient, purchases, used.get(ingredient.id) ?? 0) : null;
+    const lot = stock?.current ?? stock?.last ?? null;
+    const draw = stock && baseQty !== null ? drawCost(stock, baseQty) : null;
+    const previous = stock?.previous ?? null;
     return {
       ...line,
       baseQty,
-      unitPricePerBase: price,
-      priceDate: current?.date ?? null,
-      supplierId: current?.supplierId ?? null,
-      cost: baseQty === null || price === null ? null : Math.round(baseQty * price),
-      previousCost: baseQty === null || previousPrice === null ? null : Math.round(baseQty * previousPrice),
-      issue: ingredient && baseQty === null ? 'unit-mismatch' : price === null ? 'no-price' : null,
+      unitPricePerBase: lot?.unitPricePerBase ?? null,
+      priceDate: lot?.date ?? null,
+      supplierId: lot?.supplierId ?? null,
+      cost: draw === null ? null : Math.round(draw.cost),
+      previousCost: baseQty === null || previous === null ? null : Math.round(baseQty * previous.unitPricePerBase),
+      issue: ingredient && baseQty === null ? 'unit-mismatch' : lot === null ? 'no-price' : null,
+      stockShort: draw?.short ?? false,
     };
   });
   return assemble(menu, lines);
@@ -76,8 +76,9 @@ export function previewWithPrice(
   purchases: readonly Purchase[],
   ingredientId: string,
   price: number,
+  used: Usage = NO_USAGE,
 ): MenuCost {
-  const real = computeMenuCost(menu, ingredients, purchases);
+  const real = computeMenuCost(menu, ingredients, purchases, used);
   const lines = real.lines.map((line): MenuCostLine => {
     if (line.ingredientId !== ingredientId || line.baseQty === null) {
       return { ...line, previousCost: line.cost };
@@ -90,26 +91,28 @@ export function previewWithPrice(
       cost: Math.round(line.baseQty * price),
       previousCost: line.cost,
       issue: null,
+      stockShort: false,
     };
   });
   return { ...assemble(menu, lines), previousTotal: real.total };
 }
 
+/** Price of the stock in use against the lot used up before it. */
 export function priceChanges(
   ingredients: readonly Ingredient[],
   purchases: readonly Purchase[],
+  used: Usage = NO_USAGE,
 ): PriceChange[] {
   return ingredients.flatMap((ingredient) => {
-    const { current, previous } = currentAndPrevious(ingredient, purchases);
+    const stock = stockOf(ingredient, purchases, used.get(ingredient.id) ?? 0);
+    const current = stock.current ?? stock.last;
+    const previous = stock.previous;
     if (current === null || previous === null) return [];
-    const currentPrice = unitPricePerBase(current, ingredient.baseUnit);
-    const previousPrice = unitPricePerBase(previous, ingredient.baseUnit);
-    if (currentPrice === null || previousPrice === null) return [];
     return [{
       ingredientId: ingredient.id,
-      previousUnitPrice: previousPrice,
-      currentUnitPrice: currentPrice,
-      changeRate: currentPrice / previousPrice - 1,
+      previousUnitPrice: previous.unitPricePerBase,
+      currentUnitPrice: current.unitPricePerBase,
+      changeRate: current.unitPricePerBase / previous.unitPricePerBase - 1,
       currentDate: current.date,
       previousDate: previous.date,
     }];
@@ -120,12 +123,13 @@ export function costAlert(
   menus: readonly Menu[],
   ingredients: readonly Ingredient[],
   purchases: readonly Purchase[],
+  used: Usage = NO_USAGE,
 ): CostAlert | null {
-  const increased = new Set(priceChanges(ingredients, purchases)
+  const increased = new Set(priceChanges(ingredients, purchases, used)
     .filter((change) => change.changeRate > 0).map((change) => change.ingredientId));
   let best: CostAlert | null = null;
   for (const menu of menus) {
-    const { total, previousTotal } = computeMenuCost(menu, ingredients, purchases);
+    const { total, previousTotal } = computeMenuCost(menu, ingredients, purchases, used);
     if (total === null || previousTotal === null) continue;
     const delta = total - previousTotal;
     if (delta <= 0 || (best !== null && delta <= best.delta)) continue;

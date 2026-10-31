@@ -1,4 +1,4 @@
-import { computeMenuCost, type Menu } from "@marginlog/core";
+import { computeMenuCost, consumption, soldByMenu, type Menu } from "@marginlog/core";
 import { MenuResponseSchema, MenusResponseSchema } from "@marginlog/core/src/api/menus";
 import { getDb } from "../../../db/client";
 import { menus, recipeLines } from "../../../db/schema";
@@ -9,10 +9,13 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   const state = await loadState(getDb());
+  const used = consumption(state.menus, state.ingredients, state.sales);
+  const sold = soldByMenu(state.sales);
   const body = MenusResponseSchema.parse({
     menus: state.menus.map((menu) => ({
       menu,
-      cost: computeMenuCost(menu, state.ingredients, state.purchases),
+      cost: computeMenuCost(menu, state.ingredients, state.purchases, used),
+      sold: sold.get(menu.id) ?? 0,
     })),
   });
   return Response.json(body);

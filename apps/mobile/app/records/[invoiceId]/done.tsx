@@ -84,7 +84,8 @@ export default function ReceiptDoneScreen() {
         </>
       ) : (
         <Card>
-          <Text style={typography.body}>이번 기록으로 원가가 바뀐 메뉴는 없어요.</Text>
+          <Text style={typography.body}>메뉴 원가는 아직 그대로예요.</Text>
+          <Text style={typography.caption}>새 재고는 지금 쓰는 재고를 다 쓴 뒤 원가에 반영돼요. 홈에서 정산하면 재고가 줄어요.</Text>
         </Card>
       )}
     </Screen>

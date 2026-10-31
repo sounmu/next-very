@@ -1,4 +1,4 @@
-import { baseOf, unitPricePerBase } from "@marginlog/core";
+import { baseOf, consumption, stockOf, unitPricePerBase } from "@marginlog/core";
 import {
   IngredientDetailResponseSchema,
   IngredientResponseSchema,
@@ -34,8 +34,11 @@ export async function GET(_request: Request, { params }: Context) {
     }));
   const menus = state.menus.filter((m) => m.recipe.some((line) => line.ingredientId === id));
   const marketIndex = await loadMarketIndex(db, id);
+  const used = consumption(state.menus, state.ingredients, state.sales).get(id) ?? 0;
+  const { remaining, lots } = stockOf(ingredient, state.purchases, used);
+  const stock = { remaining, lots };
 
-  return Response.json(IngredientDetailResponseSchema.parse({ ingredient, history, menus, marketIndex }));
+  return Response.json(IngredientDetailResponseSchema.parse({ ingredient, history, stock, menus, marketIndex }));
 }
 
 export async function PATCH(request: Request, { params }: Context) {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { compareOffers } from '../compare';
 import { computeMenuCost, costAlert, currentAndPrevious, monthSpend, priceChanges } from '../cost';
+import { consumption, nextSettleDate, soldByMenu, stockOf } from '../inventory';
 import { buildOrder } from '../order';
 import { seed } from '../seed';
 import { unitPricePerBase } from '../units';
@@ -40,7 +41,8 @@ import {
   ProductsResponseSchema,
 } from './shop';
 
-const { ingredients, suppliers, purchases, menus, products, demoInvoice, marketIndex } = seed;
+const { ingredients, suppliers, purchases, menus, products, sales, demoInvoice, marketIndex } = seed;
+const used = consumption(menus, ingredients, sales);
 const ingredientById = new Map(ingredients.map((ingredient) => [ingredient.id, ingredient]));
 const supplierName = (id: string) => suppliers.find((supplier) => supplier.id === id)!.name;
 const pork = ingredientById.get('pork-shoulder')!;
@@ -50,7 +52,8 @@ const createdAt = '2026-10-31T00:00:00.000Z';
 
 const menuWithCost = (menu: (typeof menus)[number]) => ({
   menu,
-  cost: computeMenuCost(menu, ingredients, purchases),
+  cost: computeMenuCost(menu, ingredients, purchases, used),
+  sold: soldByMenu(sales).get(menu.id) ?? 0,
 });
 
 const productWithSupplier = (product: (typeof products)[number]) => ({
@@ -68,7 +71,7 @@ const demoOrder = () => {
 
 describe('response schemas parse seed-built examples', () => {
   it('dashboard', () => {
-    const changes = priceChanges(ingredients, purchases).map((change) => {
+    const changes = priceChanges(ingredients, purchases, used).map((change) => {
       const ingredient = ingredientById.get(change.ingredientId)!;
       return {
         ingredientId: change.ingredientId,
@@ -85,6 +88,7 @@ describe('response schemas parse seed-built examples', () => {
       monthIsCurrent: true,
       monthSpend: monthSpend(purchases, '2026-10'),
       purchaseCount: purchases.length,
+      nextSettleDate: nextSettleDate(sales, '2026-10-31'),
       menus: menus.map(menuWithCost),
       priceChanges: changes,
       needsReview: [{
@@ -95,7 +99,7 @@ describe('response schemas parse seed-built examples', () => {
         issueCount: 0,
         isDemo: invoice.isDemo,
       }],
-      alert: costAlert(menus, ingredients, purchases),
+      alert: costAlert(menus, ingredients, purchases, used),
     });
     expect(parsed.menus[0].cost.total).toBe(3200);
     expect(parsed.alert?.menuName).toBe('제육덮밥');
@@ -140,13 +144,16 @@ describe('response schemas parse seed-built examples', () => {
         unitPricePerBase: unitPricePerBase(purchase, pork.baseUnit),
         supplierName: supplierName(purchase.supplierId),
       }));
+    const { remaining, lots } = stockOf(pork, purchases, used.get(pork.id));
     const detail = IngredientDetailResponseSchema.parse({
       ingredient: pork,
       history,
+      stock: { remaining, lots },
       menus: menus.filter((menu) => menu.recipe.some((line) => line.ingredientId === pork.id)),
       marketIndex: marketIndex[pork.id] ?? null,
     });
     expect(detail.history).toHaveLength(2);
+    expect(detail.stock.lots.map((lot) => lot.remaining)).toEqual([0, 1600]);
     expect(IngredientDetailResponseSchema.parse({ ...detail, marketIndex: null }).marketIndex).toBeNull();
     expect(IngredientResponseSchema.parse({ ingredient: pork }).ingredient.aliases).toContain('돈앞다리');
   });
@@ -158,6 +165,8 @@ describe('response schemas parse seed-built examples', () => {
     const detail = MenuDetailResponseSchema.parse({
       menu: latte,
       cost,
+      sold: 10,
+      stock: [{ ingredientId: 'milk', remaining: 9500, current: { date: '2026-10-30', unitPricePerBase: 2.8, remaining: 9500 }, next: null }],
       ingredients: latte.recipe.map((line) => ingredientById.get(line.ingredientId)),
       suppliers: suppliers.filter((supplier) => ['hanbit', 'coffee-lab'].includes(supplier.id)),
     });
@@ -168,7 +177,7 @@ describe('response schemas parse seed-built examples', () => {
   it('menu cost with an unpriced ingredient keeps nulls', () => {
     const cost = computeMenuCost(jeyuk, ingredients, purchases.filter((p) => p.ingredientId !== 'rice'));
     expect(cost.total).toBeNull();
-    expect(MenusResponseSchema.parse({ menus: [{ menu: jeyuk, cost }] }).menus[0].cost.missing).toEqual(['rice']);
+    expect(MenusResponseSchema.parse({ menus: [{ menu: jeyuk, cost, sold: 0 }] }).menus[0].cost.missing).toEqual(['rice']);
   });
 
   it('invoices create, list, detail and confirm result', () => {

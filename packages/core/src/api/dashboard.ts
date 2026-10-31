@@ -24,12 +24,16 @@ export const NeedsReviewSchema = z.object({
 });
 export type NeedsReview = z.infer<typeof NeedsReviewSchema>;
 
-/** GET /api/dashboard. `monthIsCurrent` is false when the latest data month is not the calendar month. */
+/**
+ * GET /api/dashboard. `monthIsCurrent` is false when the latest data month is not the calendar month.
+ * `nextSettleDate` is the day the next 정산하기 will record.
+ */
 export const DashboardResponseSchema = z.object({
   month: MonthSchema,
   monthIsCurrent: z.boolean(),
   monthSpend: WonSchema,
   purchaseCount: z.number().int().nonnegative(),
+  nextSettleDate: IsoDateSchema,
   menus: z.array(MenuWithCostSchema),
   priceChanges: z.array(DashboardPriceChangeSchema),
   needsReview: z.array(NeedsReviewSchema),

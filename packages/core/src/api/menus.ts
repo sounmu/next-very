@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import {
+  IdSchema,
   IngredientSchema,
+  IsoDateSchema,
   MenuCostSchema,
   MenuSchema,
   RecipeLineSchema,
@@ -8,12 +10,22 @@ import {
   WonSchema,
 } from '../schemas';
 
-export const MenuWithCostSchema = z.object({ menu: MenuSchema, cost: MenuCostSchema });
+/** `sold` is every serving recorded so far. */
+export const MenuWithCostSchema = z.object({ menu: MenuSchema, cost: MenuCostSchema, sold: z.number().int().nonnegative() });
 export type MenuWithCost = z.infer<typeof MenuWithCostSchema>;
 
 /** GET /api/menus */
 export const MenusResponseSchema = z.object({ menus: z.array(MenuWithCostSchema) });
 export type MenusResponse = z.infer<typeof MenusResponseSchema>;
+
+/** Stock of one recipe ingredient, base units. `current` is the lot being used, `next` the one after it. */
+export const MenuStockSchema = z.object({
+  ingredientId: IdSchema,
+  remaining: z.number().nonnegative(),
+  current: z.object({ date: IsoDateSchema, unitPricePerBase: z.number(), remaining: z.number().nonnegative() }).nullable(),
+  next: z.object({ date: IsoDateSchema, unitPricePerBase: z.number() }).nullable(),
+});
+export type MenuStock = z.infer<typeof MenuStockSchema>;
 
 /**
  * GET /api/menus/[id]. `ingredients` holds the recipe's ingredients and
@@ -22,6 +34,8 @@ export type MenusResponse = z.infer<typeof MenusResponseSchema>;
 export const MenuDetailResponseSchema = z.object({
   menu: MenuSchema,
   cost: MenuCostSchema,
+  sold: z.number().int().nonnegative(),
+  stock: z.array(MenuStockSchema),
   ingredients: z.array(IngredientSchema),
   suppliers: z.array(SupplierSchema),
 });
