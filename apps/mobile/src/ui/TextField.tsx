@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { StyleSheet, Text, TextInput, View, type KeyboardTypeOptions } from 'react-native';
+import { useState, type ReactNode } from 'react';
+import { StyleSheet, Text, TextInput, View, type KeyboardTypeOptions, type TextInputProps } from 'react-native';
 
 import { colors, control, lineWidth, radius, space, typography } from './tokens';
 
@@ -17,10 +17,29 @@ export type TextFieldProps = {
   hint?: string;
   /** Amounts align right (DESIGN.md 8.3). */
   align?: 'left' | 'right';
+  secureTextEntry?: boolean;
+  autoCapitalize?: TextInputProps['autoCapitalize'];
+  autoComplete?: TextInputProps['autoComplete'];
+  /** Element inside the field after the suffix, e.g. a 표시/숨기기 button. */
+  accessory?: ReactNode;
 };
 
 /** DESIGN.md 8.3: label above, 52 high subtle field, 2px accent border on focus, 1px error border. */
-export function TextField({ label, value, onChangeText, placeholder, suffix, keyboardType, error, hint, align = 'left' }: TextFieldProps) {
+export function TextField({
+  label,
+  value,
+  onChangeText,
+  placeholder,
+  suffix,
+  keyboardType,
+  error,
+  hint,
+  align = 'left',
+  secureTextEntry,
+  autoCapitalize,
+  autoComplete,
+  accessory,
+}: TextFieldProps) {
   const [focused, setFocused] = useState(false);
   return (
     <View style={styles.root}>
@@ -33,11 +52,15 @@ export function TextField({ label, value, onChangeText, placeholder, suffix, key
           placeholder={placeholder}
           placeholderTextColor={colors.text3}
           keyboardType={keyboardType}
+          secureTextEntry={secureTextEntry}
+          autoCapitalize={autoCapitalize}
+          autoComplete={autoComplete}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           style={[styles.input, align === 'right' && styles.right]}
         />
         {suffix ? <Text style={styles.suffix}>{suffix}</Text> : null}
+        {accessory}
       </View>
       {error ? <Text style={styles.error}>{error}</Text> : hint ? <Text style={typography.caption}>{hint}</Text> : null}
     </View>

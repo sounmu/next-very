@@ -26,6 +26,8 @@ import {
   space,
   typography,
 } from '@/ui';
+import { useSession } from '@/session/SessionProvider';
+import { NewStoreEmpty } from '@/session/NewStoreEmpty';
 
 const ALL = 'all';
 
@@ -35,7 +37,7 @@ function baseOf(unit: Unit): BaseUnit {
   return 'ea';
 }
 
-export default function ShopScreen() {
+function ShowcaseShop() {
   const products = useProducts();
   const ingredients = useShopIngredients();
   const cart = useCart();
@@ -349,3 +351,8 @@ const styles = StyleSheet.create({
   inCart: { ...typography.caption, color: colors.primary, fontWeight: '600' },
   error: { ...typography.caption, color: colors.loss },
 });
+
+export default function ShopScreen() {
+  const { mode } = useSession();
+  return mode === 'demo' ? <NewStoreEmpty title="구매" emptyTitle="아직 준비 중이에요" message="새 가게의 장보기는 서버 연결 뒤에 열려요" /> : <ShowcaseShop />;
+}

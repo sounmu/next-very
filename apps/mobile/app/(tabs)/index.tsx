@@ -27,6 +27,9 @@ import {
   space,
   typography,
 } from '@/ui';
+import { useSession } from '@/session/SessionProvider';
+import { MyPageButton } from '@/session/MyPageButton';
+import { StoreHome } from '@/session/StoreHome';
 
 type ResetState = 'idle' | 'confirm' | 'done';
 
@@ -36,7 +39,7 @@ function errorText(error: unknown) {
   return error instanceof ApiError ? error.message : '잠시 후 다시 시도해 주세요';
 }
 
-export default function HomeScreen() {
+function ShowcaseHome() {
   const dashboard = useDashboard();
   const ingredients = useIngredients();
   const compare = useCompareList();
@@ -47,7 +50,13 @@ export default function HomeScreen() {
   const confirmReset = () =>
     reset.mutate(undefined, { onSuccess: () => setResetState('done') });
 
-  const header = <Header title="우리 가게 원가" onTitleLongPress={() => setResetState('confirm')} />;
+  const header = (
+    <Header
+      title="우리 가게 원가"
+      onTitleLongPress={() => setResetState('confirm')}
+      right={<MyPageButton />}
+    />
+  );
 
   const resetPill =
     resetState === 'idle' ? null : (
@@ -339,3 +348,8 @@ const styles = StyleSheet.create({
   changeText: { ...typography.bodyStrong, color: colors.primary },
   errorText: { ...typography.caption, color: colors.loss },
 });
+
+export default function HomeScreen() {
+  const { mode } = useSession();
+  return mode === 'demo' ? <StoreHome /> : <ShowcaseHome />;
+}
