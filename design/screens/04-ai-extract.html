@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=390, initial-scale=1">
+  <title>마진로그 - AI 추출 결과</title>
+  <link rel="stylesheet" href="../tokens.css">
+  <style>
+    /* 04 ai-extract: screen-only styles. Every value traces to tokens.css. */
+    .appbar h1 { word-break: keep-all; }
+
+    /* 추출 상태 카드 */
+    .scan-card { display: flex; gap: var(--s-3); align-items: stretch; }
+    .thumb { flex: none; width: 88px; height: 112px; border-radius: var(--r-md); overflow: hidden; }
+    .thumb svg { display: block; width: 100%; height: 100%; }
+    .rc-bg { fill: var(--c-text-2); opacity: .32; }
+    .rc-paper { fill: var(--c-surface); }
+    .rc-ink { fill: var(--c-text-2); opacity: .55; }
+    .rc-ink-l { fill: var(--c-text-3); opacity: .55; }
+    .rc-ink-d { fill: var(--c-text); opacity: .75; }
+    .rc-dash { stroke: var(--c-line); stroke-width: 1; stroke-dasharray: 2 2; }
+    .rc-tint { fill: var(--c-primary); opacity: .16; }
+    .rc-glow { fill: var(--c-primary); opacity: .3; }
+    .rc-line { fill: var(--c-primary); }
+    .rc-corner { fill: none; stroke: var(--c-primary); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+    .scan-info { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; }
+    .eyebrow { display: inline-flex; align-items: center; gap: var(--s-1); font-size: var(--fs-sm); font-weight: 700; color: var(--c-primary); }
+    .eyebrow svg { width: 14px; height: 14px; }
+    .status { font-size: var(--fs-h); font-weight: 700; line-height: 1.35; margin-top: var(--s-1); word-break: keep-all; }
+    .sub { font-size: var(--fs-sm); color: var(--c-text-3); margin-top: var(--s-1); }
+    .progress-row { display: flex; align-items: center; gap: var(--s-2); margin-top: var(--s-3); }
+    .progress { flex: 1; height: 6px; border-radius: var(--r-full); background: var(--c-primary-50); overflow: hidden; }
+    .progress i { display: block; width: 100%; height: 100%; background: var(--c-primary); border-radius: inherit; }
+    .pct { font-size: var(--fs-xs); font-weight: 700; color: var(--c-primary); }
+
+    /* 품목 카드 */
+    .doc-head { display: flex; align-items: center; gap: var(--s-3); padding-bottom: var(--s-3); border-bottom: 1px solid var(--c-line); }
+    .doc-icon { flex: none; width: 40px; height: 40px; border-radius: var(--r-md); background: var(--c-primary-50); color: var(--c-primary); display: grid; place-items: center; }
+    .doc-icon svg { width: 22px; height: 22px; }
+    .doc-name { flex: 1; min-width: 0; font-size: var(--fs-body); font-weight: 700; }
+    .doc-date { font-size: var(--fs-sm); color: var(--c-text-3); font-weight: 500; }
+    .items { list-style: none; }
+    .name-line { display: flex; align-items: center; gap: var(--s-2); }
+    .chip svg { width: 12px; height: 12px; }
+    .row .amount { font-size: var(--fs-body); }
+    .total { display: flex; align-items: baseline; justify-content: space-between; border-top: 1px solid var(--c-line); padding-top: var(--s-3); }
+    .total span { font-size: var(--fs-sm); font-weight: 600; color: var(--c-text-2); }
+    .total strong { font-size: var(--fs-title); font-weight: 700; letter-spacing: -0.01em; }
+
+    .bottom-cta .btn { flex: 1; }
+  </style>
+</head>
+<body>
+  <main class="frame">
+    <div class="statusbar">
+      <span class="num">9:41</span>
+      <span class="sb-icons" aria-hidden="true">
+        <svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="8" width="3" height="4" rx=".8"/><rect x="5" y="5.5" width="3" height="6.5" rx=".8"/><rect x="10" y="3" width="3" height="9" rx=".8"/><rect x="15" y="0" width="3" height="12" rx=".8"/></svg>
+        <svg width="16" height="12" viewBox="0 0 16 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M1.5 4.3a10 10 0 0 1 13 0"/><path d="M4 7.1a6.2 6.2 0 0 1 8 0"/><path d="M6.6 9.8a2.5 2.5 0 0 1 2.8 0"/></svg>
+        <svg width="27" height="12" viewBox="0 0 27 12" fill="none"><rect x=".5" y=".5" width="22" height="11" rx="3" stroke="currentColor" opacity=".4"/><rect x="2" y="2" width="19" height="8" rx="1.8" fill="currentColor"/><path d="M24.5 4v4a2 2 0 0 0 0-4z" fill="currentColor" opacity=".4"/></svg>
+      </span>
+    </div>
+
+    <header class="appbar">
+      <button class="icon-btn" type="button" aria-label="뒤로">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+      </button>
+      <h1>AI 추출 결과</h1>
+    </header>
+
+    <section class="content">
+      <section class="card scan-card" aria-label="추출 상태">
+        <div class="thumb" role="img" aria-label="업로드한 거래명세서 사진">
+          <svg viewBox="0 0 88 112" aria-hidden="true">
+            <rect width="88" height="112" class="rc-bg"/>
+            <g transform="rotate(-3 44 56)">
+              <rect x="16" y="4" width="56" height="104" rx="2" class="rc-paper"/>
+              <rect x="30" y="12" width="28" height="4" rx="1" class="rc-ink"/>
+              <rect x="26" y="20" width="36" height="2" rx="1" class="rc-ink-l"/>
+              <line x1="21" y1="28" x2="67" y2="28" class="rc-dash"/>
+              <rect x="21" y="34" width="18" height="2.5" rx="1" class="rc-ink"/><rect x="53" y="34" width="14" height="2.5" rx="1" class="rc-ink"/>
+              <rect x="21" y="42" width="12" height="2.5" rx="1" class="rc-ink"/><rect x="53" y="42" width="14" height="2.5" rx="1" class="rc-ink"/>
+              <rect x="21" y="50" width="22" height="2.5" rx="1" class="rc-ink"/><rect x="53" y="50" width="14" height="2.5" rx="1" class="rc-ink"/>
+              <rect x="21" y="58" width="16" height="2.5" rx="1" class="rc-ink"/><rect x="53" y="58" width="14" height="2.5" rx="1" class="rc-ink"/>
+              <line x1="21" y1="66" x2="67" y2="66" class="rc-dash"/>
+              <rect x="21" y="72" width="12" height="3" rx="1" class="rc-ink-d"/><rect x="47" y="72" width="20" height="3" rx="1" class="rc-ink-d"/>
+              <rect x="21" y="84" width="46" height="2" rx="1" class="rc-ink-l"/>
+              <rect x="21" y="90" width="30" height="2" rx="1" class="rc-ink-l"/>
+            </g>
+            <rect x="0" y="0" width="88" height="80" class="rc-tint"/>
+            <rect x="0" y="76" width="88" height="8" class="rc-glow"/>
+            <rect x="0" y="79" width="88" height="2" class="rc-line"/>
+            <path d="M6 16V8a2 2 0 0 1 2-2h8M72 6h8a2 2 0 0 1 2 2v8M82 96v8a2 2 0 0 1-2 2h-8M16 106H8a2 2 0 0 1-2-2v-8" class="rc-corner"/>
+          </svg>
+        </div>
+        <div class="scan-info">
+          <p class="eyebrow">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"/></svg>
+            추출 완료
+          </p>
+          <h2 class="status">AI가 4개 품목을 찾았어요</h2>
+          <p class="sub">거래명세서 사진 1장</p>
+          <div class="progress-row" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100" aria-label="추출 진행률">
+            <div class="progress"><i></i></div>
+            <span class="pct num">100%</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="card items-card" aria-label="추출된 품목">
+        <div class="doc-head">
+          <div class="doc-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 4.5 5h15L21 9.5"/><path d="M3 9.5a2.25 2.25 0 0 0 4.5 0 2.25 2.25 0 0 0 4.5 0 2.25 2.25 0 0 0 4.5 0 2.25 2.25 0 0 0 4.5 0"/><path d="M5 12.5V20h14v-7.5"/><path d="M10 20v-5h4v5"/></svg>
+          </div>
+          <p class="doc-name">대성유통</p>
+          <p class="doc-date num">2026-10-28</p>
+        </div>
+
+        <ul class="items">
+          <li class="row">
+            <div class="grow">
+              <div class="t1">양파</div>
+              <div class="t2">20kg · 1개 × 28,000원</div>
+            </div>
+            <span class="amount num">28,000원</span>
+          </li>
+          <li class="row">
+            <div class="grow">
+              <div class="t1 name-line">대파
+                <span class="chip chip-warn">
+                  <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="6" cy="6" r="4.75"/><path d="M6 3.6v2.9"/><circle cx="6" cy="8.5" r=".6" fill="currentColor" stroke="none"/></svg>
+                  확인 필요
+                </span>
+              </div>
+              <div class="t2">1kg · 3개 × 4,200원</div>
+            </div>
+            <span class="amount num">12,600원</span>
+          </li>
+          <li class="row">
+            <div class="grow">
+              <div class="t1">돼지 앞다리</div>
+              <div class="t2">10kg · 1개 × 89,000원</div>
+            </div>
+            <span class="amount num">89,000원</span>
+          </li>
+          <li class="row">
+            <div class="grow">
+              <div class="t1">식용유</div>
+              <div class="t2">18L · 1개 × 52,000원</div>
+            </div>
+            <span class="amount num">52,000원</span>
+          </li>
+        </ul>
+
+        <div class="total">
+          <span>합계</span>
+          <strong class="num">181,600원</strong>
+        </div>
+      </section>
+    </section>
+
+    <footer class="bottom-cta">
+      <button class="btn btn-secondary" type="button">수정하기</button>
+      <button class="btn btn-primary" type="button">장부에 저장</button>
+    </footer>
+    <div class="home-indicator" aria-hidden="true"></div>
+  </main>
+</body>
+</html>

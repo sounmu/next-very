@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=390, initial-scale=1">
+  <title>마진로그 · 매출 입력</title>
+  <link rel="stylesheet" href="../tokens.css">
+  <style>
+    /* 07 sales-input: screen-scoped styles. Every value traces to tokens.css. */
+    .content { gap: var(--s-6); padding-top: var(--s-2); }
+
+    /* date selector */
+    .date-select { align-self: flex-start; height: 40px; padding: 0 var(--s-3) 0 var(--s-3); border: 1px solid var(--c-line); border-radius: var(--r-full); background: var(--c-surface); color: var(--c-text); font: 600 var(--fs-body) var(--font); display: inline-flex; align-items: center; gap: var(--s-2); }
+    .date-select .ico { display: flex; color: var(--c-primary); }
+    .date-select .chev { display: flex; color: var(--c-text-2); }
+
+    /* day total */
+    .day-total { display: flex; flex-direction: column; gap: var(--s-1); }
+    .day-total .label { font-size: var(--fs-sm); font-weight: 600; color: var(--c-text-2); }
+    .day-total .value { font-size: var(--fs-display); font-weight: 700; line-height: 1.25; }
+    .day-total .mtd { font-size: var(--fs-sm); font-weight: 500; color: var(--c-text-2); }
+
+    /* channel rows */
+    .channels { padding: var(--s-2); display: flex; flex-direction: column; }
+    .ch-row { height: 60px; width: 100%; padding: 0 var(--s-3); border: 0; border-radius: var(--r-md); background: transparent; color: var(--c-text); font: inherit; text-align: left; display: flex; align-items: center; gap: var(--s-3); }
+    .ch-row .tile { width: 40px; height: 40px; flex: none; border-radius: var(--r-md); background: var(--c-bg); color: var(--c-text-2); display: grid; place-items: center; }
+    .ch-row .name { flex: 1; min-width: 0; font-size: var(--fs-body); font-weight: 600; }
+    .ch-row .amount { font-size: var(--fs-h); display: inline-flex; align-items: center; }
+    .ch-row.is-focused { background: var(--c-primary-50); }
+    .ch-row.is-focused .tile { background: var(--c-surface); color: var(--c-primary); }
+    .ch-row.is-focused .amount { color: var(--c-primary); }
+    .caret { width: 2px; height: 22px; margin: 0 2px 0 var(--s-1); border-radius: 1px; background: var(--c-primary); }
+
+    /* save CTA + keypad */
+    .bottom-cta.is-stacked { flex-direction: column; gap: var(--s-3); }
+    .keypad { display: grid; grid-template-columns: repeat(3, 1fr); grid-auto-rows: 56px; }
+    .key { border: 0; border-radius: var(--r-md); background: transparent; color: var(--c-text); font: 500 var(--fs-title) var(--font); font-variant-numeric: tabular-nums; display: grid; place-items: center; }
+    .key:active, .ch-row:active { background: var(--c-bg); }
+    .key:focus-visible, .ch-row:focus-visible, .date-select:focus-visible, .btn:focus-visible, .icon-btn:focus-visible { outline: 2px solid var(--c-primary); outline-offset: 2px; }
+  </style>
+</head>
+<body>
+<main class="frame">
+  <div class="statusbar">
+    <span class="num">9:41</span>
+    <span class="sb-icons" aria-hidden="true">
+      <svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+      <svg width="16" height="12" viewBox="0 0 16 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M1.5 4.2a9.2 9.2 0 0 1 13 0"/><path d="M4.4 7.2a5.2 5.2 0 0 1 7.2 0"/><circle cx="8" cy="10.2" r="1.2" fill="currentColor" stroke="none"/></svg>
+      <svg width="27" height="12" viewBox="0 0 27 12" fill="none"><rect x="0.5" y="0.5" width="22" height="11" rx="3" stroke="currentColor"/><rect x="2" y="2" width="19" height="8" rx="1.5" fill="currentColor"/><path d="M24 4v4a2 2 0 0 0 0-4Z" fill="currentColor" opacity=".4"/></svg>
+    </span>
+  </div>
+
+  <header class="appbar">
+    <button class="icon-btn" type="button" aria-label="뒤로 가기">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <h1>매출 입력</h1>
+  </header>
+
+  <section class="content">
+    <button class="date-select" type="button" aria-label="날짜 선택, 2026년 10월 31일 (금)">
+      <span class="ico" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg></span>
+      <span class="num">2026년 10월 31일 (금)</span>
+      <span class="chev" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span>
+    </button>
+
+    <div class="day-total">
+      <span class="label">일 매출 합계</span>
+      <span class="value amount">714,000원</span>
+      <span class="mtd num">월 누계 18,420,000원</span>
+    </div>
+
+    <div class="card channels" role="group" aria-label="채널별 매출">
+      <button class="ch-row is-focused" type="button" aria-current="true">
+        <span class="tile" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 9.5h19M6.5 15h4"/></svg></span>
+        <span class="name">카드</span>
+        <span class="amount">482,000<span class="caret" aria-hidden="true"></span>원</span>
+      </button>
+      <button class="ch-row" type="button">
+        <span class="tile" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="19" height="12" rx="2.5"/><circle cx="12" cy="12" r="2.6"/><path d="M6 12h.01M18 12h.01" stroke-width="2.6"/></svg></span>
+        <span class="name">현금</span>
+        <span class="amount">64,000원</span>
+      </button>
+      <button class="ch-row" type="button">
+        <span class="tile" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6.5" cy="17.5" r="2.5"/><circle cx="18.5" cy="17.5" r="2.5"/><path d="M3.5 15.5v-1.5a3.5 3.5 0 0 1 3.5-3.5h4l2 3.5h4"/><path d="M14 5.5h2.5l2 12"/><rect x="3.5" y="4" width="6" height="4.5" rx="1"/></svg></span>
+        <span class="name">배달앱</span>
+        <span class="amount">168,000원</span>
+      </button>
+    </div>
+  </section>
+
+  <div class="bottom-cta is-stacked">
+    <button class="btn btn-primary" type="button">저장</button>
+    <div class="keypad" role="group" aria-label="숫자 키패드">
+      <button class="key" type="button">1</button>
+      <button class="key" type="button">2</button>
+      <button class="key" type="button">3</button>
+      <button class="key" type="button">4</button>
+      <button class="key" type="button">5</button>
+      <button class="key" type="button">6</button>
+      <button class="key" type="button">7</button>
+      <button class="key" type="button">8</button>
+      <button class="key" type="button">9</button>
+      <button class="key" type="button">00</button>
+      <button class="key" type="button">0</button>
+      <button class="key" type="button" aria-label="지우기"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5h10.5A1.5 1.5 0 0 1 21 6.5v11a1.5 1.5 0 0 1-1.5 1.5H9l-6-7z"/><path d="M12.5 9.5l5 5M17.5 9.5l-5 5"/></svg></button>
+    </div>
+  </div>
+  <div class="home-indicator" aria-hidden="true"></div>
+</main>
+</body>
+</html>

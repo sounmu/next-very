@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=390, initial-scale=1">
+  <title>마진로그 · 품목 수정</title>
+  <link rel="stylesheet" href="../tokens.css">
+  <style>
+    /* 05 manual-edit: screen-scoped styles. Every value traces to tokens.css. */
+
+    /* original photo strip */
+    .photo-strip { display: flex; align-items: center; gap: var(--s-3); padding: var(--s-3); }
+    .thumb { width: 48px; height: 48px; flex: none; border-radius: var(--r-sm); overflow: hidden; }
+    .thumb svg { display: block; width: 100%; height: 100%; }
+    .th-bg { fill: var(--c-text-2); }
+    .th-paper { fill: var(--c-surface); }
+    .th-line { fill: var(--c-line); }
+    .th-sum { fill: var(--c-text-3); }
+    .photo-strip .t1 { flex: 1; min-width: 0; font-size: var(--fs-body); font-weight: 600; }
+    .btn-sm { height: 32px; padding: 0 var(--s-3); border: 0; border-radius: var(--r-full); background: var(--c-primary-50); color: var(--c-primary); font: 600 var(--fs-sm) var(--font); display: inline-flex; align-items: center; gap: var(--s-1); }
+
+    /* supplier / date / category */
+    .fields { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-3); }
+    .trail { margin-left: auto; display: flex; color: var(--c-text-3); }
+    .cat { display: flex; gap: var(--s-2); }
+    .cat .chip { height: 32px; padding: 0 10px; border: 0; font: 600 var(--fs-sm) var(--font); }
+
+    /* editable item grid */
+    .items { display: flex; flex-direction: column; gap: var(--s-2); }
+    .irow { display: grid; grid-template-columns: minmax(0, 1fr) 58px 42px 66px 66px; column-gap: 6px; }
+    .irow.head { color: var(--c-text-2); font-size: var(--fs-xs); font-weight: 600; }
+    .irow.head span { padding: 0 var(--s-2); }
+    .cell { height: 44px; padding: 0 var(--s-2); font-size: var(--fs-sm); border-radius: var(--r-sm); white-space: nowrap; }
+    .ta-c { justify-content: center; text-align: center; }
+    .ta-r { justify-content: flex-end; text-align: right; }
+    .hint { grid-column: 1 / -1; display: flex; align-items: center; gap: var(--s-1); margin-top: var(--s-1); font-size: var(--fs-sm); font-weight: 500; color: var(--c-text-2); }
+    .hint svg { flex: none; color: var(--c-warn); }
+    .btn-add { height: 48px; width: 100%; border: 1px dashed var(--c-primary); border-radius: var(--r-md); background: transparent; color: var(--c-primary); font: 600 var(--fs-body) var(--font); display: inline-flex; align-items: center; justify-content: center; gap: var(--s-1); }
+
+    /* sticky total + CTA */
+    .bottom-cta.is-stacked { flex-direction: column; gap: var(--s-3); }
+    .total { display: flex; align-items: baseline; justify-content: space-between; }
+    .total .label { font-size: var(--fs-sm); font-weight: 600; color: var(--c-text-2); }
+    .total .value { font-size: var(--fs-title); font-weight: 700; }
+  </style>
+</head>
+<body>
+<main class="frame">
+  <div class="statusbar">
+    <span class="num">9:41</span>
+    <span class="sb-icons" aria-hidden="true">
+      <svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+      <svg width="16" height="12" viewBox="0 0 16 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M1.5 4.2a9.2 9.2 0 0 1 13 0"/><path d="M4.4 7.2a5.2 5.2 0 0 1 7.2 0"/><circle cx="8" cy="10.2" r="1.2" fill="currentColor" stroke="none"/></svg>
+      <svg width="27" height="12" viewBox="0 0 27 12" fill="none"><rect x="0.5" y="0.5" width="22" height="11" rx="3" stroke="currentColor"/><rect x="2" y="2" width="19" height="8" rx="1.5" fill="currentColor"/><path d="M24 4v4a2 2 0 0 0 0-4Z" fill="currentColor" opacity=".4"/></svg>
+    </span>
+  </div>
+
+  <header class="appbar">
+    <button class="icon-btn" type="button" aria-label="뒤로 가기">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <h1>품목 수정</h1>
+  </header>
+
+  <section class="content">
+    <div class="card photo-strip">
+      <div class="thumb" aria-hidden="true">
+        <svg viewBox="0 0 48 48">
+          <rect class="th-bg" width="48" height="48"/>
+          <g transform="rotate(-8 24 24)">
+            <rect class="th-paper" x="13" y="6" width="22" height="36" rx="2"/>
+            <rect class="th-line" x="16" y="11" width="11" height="2" rx="1"/>
+            <rect class="th-line" x="16" y="17" width="16" height="2" rx="1"/>
+            <rect class="th-line" x="16" y="22" width="14" height="2" rx="1"/>
+            <rect class="th-line" x="16" y="27" width="16" height="2" rx="1"/>
+            <rect class="th-line" x="16" y="32" width="12" height="2" rx="1"/>
+            <rect class="th-sum" x="16" y="37" width="16" height="2.5" rx="1"/>
+          </g>
+        </svg>
+      </div>
+      <div class="t1">원본 사진 1장</div>
+      <button class="btn-sm" type="button">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+        원본 보기
+      </button>
+    </div>
+
+    <div class="fields">
+      <div class="field">
+        <label>공급처</label>
+        <div class="input">대성유통</div>
+      </div>
+      <div class="field">
+        <label>거래일</label>
+        <div class="input num">2026-10-28
+          <span class="trail" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>분류</label>
+      <div class="cat" role="group" aria-label="분류 선택">
+        <button class="chip chip-primary" type="button" aria-pressed="true">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>
+          식자재
+        </button>
+        <button class="chip chip-mid" type="button" aria-pressed="false">인건비</button>
+        <button class="chip chip-mid" type="button" aria-pressed="false">임대료</button>
+        <button class="chip chip-mid" type="button" aria-pressed="false">공과금</button>
+        <button class="chip chip-mid" type="button" aria-pressed="false">기타</button>
+      </div>
+    </div>
+
+    <div class="items">
+      <div class="section-title">품목 4개</div>
+      <div class="irow head">
+        <span>품목</span><span>규격</span><span class="ta-c">수량</span><span class="ta-r">단가</span><span class="ta-r">금액</span>
+      </div>
+      <div class="irow">
+        <div class="input cell">양파</div>
+        <div class="input cell">20kg</div>
+        <div class="input cell ta-c num">1</div>
+        <div class="input cell ta-r num">28,000</div>
+        <div class="input cell ta-r num">28,000</div>
+      </div>
+      <div class="irow">
+        <div class="input cell">대파</div>
+        <div class="input cell">1kg</div>
+        <div class="input cell ta-c num is-warn">3</div>
+        <div class="input cell ta-r num">4,200</div>
+        <div class="input cell ta-r num">12,600</div>
+        <p class="hint">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v4.5"/><path d="M12 16h.01"/></svg>
+          AI 인식 신뢰도가 낮아요. 원본과 비교해 주세요
+        </p>
+      </div>
+      <div class="irow">
+        <div class="input cell">돼지 앞다리</div>
+        <div class="input cell">10kg</div>
+        <div class="input cell ta-c num">1</div>
+        <div class="input cell ta-r num">89,000</div>
+        <div class="input cell ta-r num">89,000</div>
+      </div>
+      <div class="irow">
+        <div class="input cell">식용유</div>
+        <div class="input cell">18L</div>
+        <div class="input cell ta-c num">1</div>
+        <div class="input cell ta-r num">52,000</div>
+        <div class="input cell ta-r num">52,000</div>
+      </div>
+    </div>
+
+    <button class="btn-add" type="button">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+      품목 추가
+    </button>
+  </section>
+
+  <footer class="bottom-cta is-stacked">
+    <div class="total">
+      <span class="label">합계</span>
+      <span class="value num">181,600원</span>
+    </div>
+    <button class="btn btn-primary" type="button">저장하기</button>
+  </footer>
+  <div class="home-indicator" aria-hidden="true"></div>
+</main>
+</body>
+</html>

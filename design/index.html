@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>마진로그 화면 갤러리</title>
+  <link rel="stylesheet" href="tokens.css">
+  <style>
+    html, body { background: var(--c-bg); }
+    .gallery-head { padding: var(--s-8) var(--s-6) var(--s-4); }
+    .gallery-head h1 { font-size: var(--fs-title); font-weight: 800; }
+    .gallery-head p { margin-top: var(--s-1); font-size: var(--fs-sm); color: var(--c-text-2); }
+    .grid { display: flex; flex-wrap: wrap; gap: var(--s-8) var(--s-6); padding: var(--s-4) var(--s-6) var(--s-8); }
+    figure { display: flex; flex-direction: column; gap: var(--s-2); }
+    figcaption { display: flex; align-items: baseline; gap: var(--s-2); font-size: var(--fs-body); font-weight: 700; }
+    figcaption .no { color: var(--c-primary); font-variant-numeric: tabular-nums; }
+    figcaption a { color: inherit; text-decoration: none; }
+    figcaption a:hover { text-decoration: underline; }
+    iframe { display: block; border: 0; border-radius: var(--r-lg); box-shadow: var(--shadow-card); background: var(--c-surface); }
+  </style>
+</head>
+<body>
+  <header class="gallery-head">
+    <h1>마진로그 화면 갤러리</h1>
+    <p>시연 흐름 순서: 01 → 08 → 13 → 14 → 09 → 12</p>
+  </header>
+  <main class="grid">
+    <figure><figcaption><span class="no">01</span><a href="screens/01-onboarding.html">온보딩/로그인</a></figcaption><iframe src="screens/01-onboarding.html" width="390" height="844" title="01 온보딩/로그인"></iframe></figure>
+    <figure><figcaption><span class="no">02</span><a href="screens/02-home.html">홈 대시보드</a></figcaption><iframe src="screens/02-home.html" width="390" height="844" title="02 홈 대시보드"></iframe></figure>
+    <figure><figcaption><span class="no">03</span><a href="screens/03-upload.html">사진 업로드</a></figcaption><iframe src="screens/03-upload.html" width="390" height="844" title="03 사진 업로드"></iframe></figure>
+    <figure><figcaption><span class="no">04</span><a href="screens/04-ai-extract.html">AI 추출 결과</a></figcaption><iframe src="screens/04-ai-extract.html" width="390" height="844" title="04 AI 추출 결과"></iframe></figure>
+    <figure><figcaption><span class="no">05</span><a href="screens/05-manual-edit.html">수기 수정</a></figcaption><iframe src="screens/05-manual-edit.html" width="390" height="844" title="05 수기 수정"></iframe></figure>
+    <figure><figcaption><span class="no">06</span><a href="screens/06-ledger.html">지출 장부</a></figcaption><iframe src="screens/06-ledger.html" width="390" height="844" title="06 지출 장부"></iframe></figure>
+    <figure><figcaption><span class="no">07</span><a href="screens/07-sales-input.html">매출 입력</a></figcaption><iframe src="screens/07-sales-input.html" width="390" height="844" title="07 매출 입력"></iframe></figure>
+    <figure><figcaption><span class="no">08</span><a href="screens/08-report.html">순수익 리포트</a></figcaption><iframe src="screens/08-report.html" width="390" height="844" title="08 순수익 리포트"></iframe></figure>
+    <figure><figcaption><span class="no">13</span><a href="screens/13-menu-cost.html">메뉴별 원가율</a></figcaption><iframe src="screens/13-menu-cost.html" width="390" height="844" title="13 메뉴별 원가율"></iframe></figure>
+    <figure><figcaption><span class="no">14</span><a href="screens/14-menu-cost-trend.html">메뉴 원가 추이 (제육볶음)</a></figcaption><iframe src="screens/14-menu-cost-trend.html" width="390" height="844" title="14 메뉴 원가 추이 (제육볶음)"></iframe></figure>
+    <figure><figcaption><span class="no">09</span><a href="screens/09-compare.html">익명 구매가 비교 목록</a></figcaption><iframe src="screens/09-compare.html" width="390" height="844" title="09 익명 구매가 비교 목록"></iframe></figure>
+    <figure><figcaption><span class="no">10</span><a href="screens/10-compare-detail.html">품목 상세 (양파 20kg)</a></figcaption><iframe src="screens/10-compare-detail.html" width="390" height="844" title="10 품목 상세 (양파 20kg)"></iframe></figure>
+    <figure><figcaption><span class="no">11</span><a href="screens/11-suppliers.html">공급처 추천 목록</a></figcaption><iframe src="screens/11-suppliers.html" width="390" height="844" title="11 공급처 추천 목록"></iframe></figure>
+    <figure><figcaption><span class="no">12</span><a href="screens/12-supplier-detail.html">공급처 상세 + 연결 요청</a></figcaption><iframe src="screens/12-supplier-detail.html" width="390" height="844" title="12 공급처 상세 + 연결 요청"></iframe></figure>
+  </main>
+</body>
+</html>

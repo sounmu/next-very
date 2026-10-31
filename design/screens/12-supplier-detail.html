@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=390, initial-scale=1">
+<title>마진로그 - 그린팜 산지직송 연결 요청 완료</title>
+<link rel="stylesheet" href="../tokens.css">
+<style>
+  .content { gap: var(--s-3); }
+  .sup-head { display: flex; flex-direction: column; gap: var(--s-3); }
+  .sup-top { display: flex; align-items: center; gap: var(--s-3); }
+  .sup-logo { width: 48px; height: 48px; flex: none; border-radius: var(--r-md); background: var(--c-primary-50); color: var(--c-primary); display: grid; place-items: center; }
+  .sup-name { font-size: var(--fs-h); font-weight: 700; }
+  .sup-meta { display: flex; align-items: center; gap: var(--s-1); font-size: var(--fs-sm); color: var(--c-text-2); margin-top: 2px; }
+  .sup-meta svg { color: var(--c-accent); }
+  .sup-meta .dim { color: var(--c-text-3); }
+  .badges { display: flex; gap: var(--s-2); }
+
+  .price-card { padding: var(--s-2) var(--s-4); }
+  .price-card .section-title { padding: var(--s-2) 0 var(--s-1); }
+  .price-card .row { padding: 10px 0; }
+  .price-card .t1 { font-size: var(--fs-body); }
+  .price-card .amount { font-size: var(--fs-body); }
+  .row.is-req .t1::after { content: "요청"; margin-left: var(--s-2); font-size: var(--fs-xs); font-weight: 700; color: var(--c-primary); }
+
+  .terms { display: flex; flex-direction: column; gap: var(--s-2); }
+  .term { display: flex; justify-content: space-between; font-size: var(--fs-sm); }
+  .term .k { color: var(--c-text-2); }
+  .term .v { font-weight: 600; }
+
+  .sheet { display: flex; flex-direction: column; align-items: center; text-align: center; }
+  .done-icon { width: 56px; height: 56px; border-radius: var(--r-full); background: var(--c-primary-50); color: var(--c-primary); display: grid; place-items: center; }
+  .sheet h2 { font-size: var(--fs-title); font-weight: 700; margin-top: var(--s-4); }
+  .sheet .desc { font-size: var(--fs-body); color: var(--c-text-2); margin-top: var(--s-2); line-height: 1.5; word-break: keep-all; }
+  .req-box { width: 100%; margin-top: var(--s-5); padding: var(--s-1) var(--s-4); border-radius: var(--r-md); background: var(--c-bg); text-align: left; }
+  .req-box .term { padding: var(--s-3) 0; font-size: var(--fs-body); }
+  .req-box .term + .term { border-top: 1px solid var(--c-line); }
+  .req-box .v.save { color: var(--c-profit); font-weight: 700; }
+  .sheet .btn { margin-top: var(--s-5); }
+</style>
+</head>
+<body>
+<main class="frame">
+  <div class="statusbar">
+    <span class="num">9:41</span>
+    <span class="sb-icons" aria-hidden="true">
+      <svg width="18" height="12" viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1" fill="currentColor"/><rect x="5" y="5.5" width="3" height="6.5" rx="1" fill="currentColor"/><rect x="10" y="3" width="3" height="9" rx="1" fill="currentColor"/><rect x="15" y="0" width="3" height="12" rx="1" fill="currentColor"/></svg>
+      <svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 11.5l2.4-2.9a3.6 3.6 0 0 0-4.8 0z" fill="currentColor"/><path d="M3.6 6.2a6.4 6.4 0 0 1 8.8 0" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round"/><path d="M1 3.4a10 10 0 0 1 14 0" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>
+      <svg width="26" height="12" viewBox="0 0 26 12"><rect x=".5" y=".5" width="22" height="11" rx="3" stroke="currentColor" fill="none" opacity=".4"/><rect x="2" y="2" width="19" height="8" rx="2" fill="currentColor"/><rect x="24" y="4" width="1.6" height="4" rx=".8" fill="currentColor" opacity=".4"/></svg>
+    </span>
+  </div>
+
+  <header class="appbar">
+    <button class="icon-btn" aria-label="뒤로 가기">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <h1>공급처 상세</h1>
+  </header>
+
+  <section class="content" aria-hidden="true">
+    <div class="card sup-head">
+      <div class="sup-top">
+        <div class="sup-logo">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20c0-8 5-13 15-15-1 10-6 15-14 15"/><path d="M5 20l7-7"/></svg>
+        </div>
+        <div>
+          <div class="sup-name">그린팜 산지직송</div>
+          <div class="sup-meta">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5l2.9 6 6.6.8-4.9 4.5 1.3 6.5L12 17l-5.9 3.3 1.3-6.5L2.5 9.3l6.6-.8z"/></svg>
+            <span class="num"><b>4.8</b></span><span class="dim num">(리뷰 212)</span>
+          </div>
+        </div>
+      </div>
+      <div class="badges">
+        <span class="chip chip-primary">새벽배송</span>
+        <span class="chip chip-mid">최소주문 50,000원</span>
+      </div>
+    </div>
+
+    <div class="card price-card">
+      <div class="section-title">품목 단가</div>
+      <div class="row is-req"><div class="grow"><div class="t1">양파 20kg</div></div><div class="amount">23,800원</div></div>
+      <div class="row"><div class="grow"><div class="t1">감자 20kg</div></div><div class="amount">31,000원</div></div>
+      <div class="row"><div class="grow"><div class="t1">당근 10kg</div></div><div class="amount">18,500원</div></div>
+    </div>
+
+    <div class="card terms">
+      <div class="section-title">배송 조건</div>
+      <div class="term"><span class="k">배송</span><span class="v">새벽배송</span></div>
+      <div class="term"><span class="k">최소주문</span><span class="v num">50,000원</span></div>
+      <div class="term"><span class="k">마포 거래 매장</span><span class="v num">31곳</span></div>
+    </div>
+  </section>
+
+  <div class="scrim"></div>
+
+  <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+    <div class="done-icon" aria-hidden="true">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+    </div>
+    <h2 id="sheet-title">연결 요청을 보냈어요</h2>
+    <p class="desc">그린팜 담당자가 영업일 1일 안에<br>견적을 보내드려요</p>
+    <div class="req-box">
+      <div class="term"><span class="k">요청 품목</span><span class="v num">양파 20kg x 8박스/월</span></div>
+      <div class="term"><span class="k">예상 월 절감</span><span class="v save num">33,600원</span></div>
+    </div>
+    <button class="btn btn-primary">확인</button>
+    <div class="home-indicator" aria-hidden="true"></div>
+  </section>
+</main>
+</body>
+</html>

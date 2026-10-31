@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=390, initial-scale=1">
+<title>마진로그 - 01 온보딩</title>
+<link rel="stylesheet" href="../tokens.css">
+<style>
+  html, body { width: 390px; height: 844px; overflow: hidden; }
+  body { justify-content: flex-start; }
+  .frame.ob { background: var(--c-surface); }
+
+  .ob-content { padding: var(--s-8) var(--s-6) 0; gap: 0; }
+
+  .ob-brand { display: flex; align-items: center; gap: var(--s-3); }
+  .ob-mark { width: calc(var(--s-6) * 2); height: calc(var(--s-6) * 2); flex: none; }
+  .ob-mark .bg { fill: var(--c-primary); }
+  .ob-mark .line { fill: none; stroke: var(--c-surface); stroke-width: 4.5; stroke-linecap: round; stroke-linejoin: round; }
+  .ob-mark .dot { fill: var(--c-accent); }
+  .ob-wordmark { font-size: var(--fs-title); font-weight: 800; letter-spacing: -0.02em; }
+
+  .ob-headline { margin-top: var(--s-8); font-size: var(--fs-display); font-weight: 800; line-height: 1.3; letter-spacing: -0.02em; word-break: keep-all; }
+  .ob-sub { margin-top: var(--s-3); font-size: var(--fs-body); line-height: 1.5; color: var(--c-text-2); }
+
+  .ob-benefits { list-style: none; margin-top: calc(var(--s-8) + var(--s-2)); display: flex; flex-direction: column; gap: var(--s-4); }
+  .ob-benefit { display: flex; align-items: center; gap: var(--s-3); font-size: var(--fs-h); font-weight: 600; }
+  .ob-benefit .ic { width: calc(var(--s-8) + var(--s-2)); height: calc(var(--s-8) + var(--s-2)); border-radius: var(--r-full); background: var(--c-primary-50); color: var(--c-primary); display: grid; place-items: center; flex: none; }
+  .ob-benefit .ic svg { width: var(--s-6); height: var(--s-6); fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+  .bottom-cta.ob-actions { flex-direction: column; gap: var(--s-2); border-top: 0; background: transparent; padding: 0 var(--s-6) 34px; }
+  .ob-helper { text-align: center; font-size: var(--fs-sm); line-height: 1.5; color: var(--c-text-2); margin-bottom: var(--s-1); }
+  .ob-actions .btn { cursor: pointer; transition: transform .12s ease; }
+  .ob-actions .btn:active { transform: scale(.98); }
+  .ob-actions .btn:focus-visible { outline: 2px solid var(--c-primary); outline-offset: 2px; }
+  .ob-actions .btn svg { width: var(--s-5); height: var(--s-5); flex: none; fill: currentColor; }
+  .ob-terms { margin-top: var(--s-2); text-align: center; font-size: var(--fs-sm); line-height: 1.5; color: var(--c-text-2); word-break: keep-all; text-wrap: balance; }
+  .ob-terms a { color: inherit; text-underline-offset: 2px; }
+
+  @media (prefers-reduced-motion: reduce) { .ob-actions .btn { transition: none; } }
+</style>
+</head>
+<body>
+<main class="frame ob">
+  <header class="statusbar">
+    <span class="num">9:41</span>
+    <span class="sb-icons" aria-hidden="true">
+      <svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+      <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor"><path d="M8 11.6a1.4 1.4 0 1 0 0-2.8 1.4 1.4 0 0 0 0 2.8z"/><path d="M3.9 7.4a5.8 5.8 0 0 1 8.2 0l-1.3 1.3a4 4 0 0 0-5.6 0L3.9 7.4z"/><path d="M1 4.5a9.9 9.9 0 0 1 14 0l-1.3 1.3a8.1 8.1 0 0 0-11.4 0L1 4.5z"/></svg>
+      <svg width="27" height="13" viewBox="0 0 27 13"><rect x=".5" y=".5" width="23" height="12" rx="3.5" fill="none" stroke="currentColor" opacity=".35"/><rect x="2" y="2" width="20" height="9" rx="2" fill="currentColor"/><path d="M25 4.5v4a2 2 0 0 0 0-4z" fill="currentColor" opacity=".4"/></svg>
+    </span>
+  </header>
+
+  <section class="content ob-content">
+    <div class="ob-brand">
+      <svg class="ob-mark" viewBox="0 0 56 56" aria-hidden="true">
+        <rect class="bg" width="56" height="56" rx="16"/>
+        <polyline class="line" points="14,37 23,25 31,31 42,18"/>
+        <circle class="dot" cx="42" cy="18" r="4.5"/>
+      </svg>
+      <span class="ob-wordmark">마진로그</span>
+    </div>
+
+    <h1 class="ob-headline">사장님, 이번 달<br>얼마 남으셨어요?</h1>
+    <p class="ob-sub">외식업 사장님을 위한 순수익 장부</p>
+
+    <ul class="ob-benefits">
+      <li class="ob-benefit">
+        <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 8.5A2.5 2.5 0 0 1 6.5 6h1.6l1.2-1.8h5.4L15.9 6h1.6A2.5 2.5 0 0 1 20 8.5v8a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 16.5v-8z"/><circle cx="12" cy="12.5" r="3.2"/></svg></span>
+        사진 한 장으로 장부 끝
+      </li>
+      <li class="ob-benefit">
+        <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 20h16"/><path d="M7 16.5v-4M12 16.5V7.5M17 16.5v-6.5"/></svg></span>
+        매달 순수익 리포트
+      </li>
+      <li class="ob-benefit">
+        <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 4.5v15M8.5 19.5h7M5.5 7.5h13"/><path d="M5.5 7.5 3 13.5h5l-2.5-6zM3 13.5a2.5 2.5 0 0 0 5 0"/><path d="M18.5 7.5 16 13.5h5l-2.5-6zM16 13.5a2.5 2.5 0 0 0 5 0"/></svg></span>
+        동네 매장과 매입가 비교
+      </li>
+    </ul>
+  </section>
+
+  <footer class="bottom-cta ob-actions">
+    <p class="ob-helper">로그인 후 업종과 지역만 선택하면 시작됩니다</p>
+    <button type="button" class="btn btn-kakao">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4C7.03 4 3 7.14 3 11c0 2.45 1.6 4.6 4.02 5.85L6.3 20l3.6-2.36c.68.1 1.38.16 2.1.16 4.97 0 9-3.14 9-7s-4.03-7-9-7z"/></svg>
+      카카오로 시작하기
+    </button>
+    <button type="button" class="btn btn-ghost">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12.2 7.2c1.1-.6 2.4-.6 3.4 0 2.2 1.3 2.9 4.4 1.6 7.4-.9 2-2.1 3.6-3.3 3.6-.6 0-1-.3-1.7-.3s-1.1.3-1.7.3c-1.2 0-2.4-1.6-3.3-3.6-1.3-3-.6-6.1 1.6-7.4 1-.6 2.3-.6 3.4 0z"/><path d="M12.3 6.4c.1-1.6 1.2-2.9 2.9-3.2-.1 1.7-1.2 3-2.9 3.2z"/></svg>
+      Apple로 계속하기
+    </button>
+    <p class="ob-terms">시작하면 마진로그의 <a href="#">이용약관</a>과 <a href="#">개인정보 처리방침</a>에 동의하게 됩니다.</p>
+  </footer>
+
+  <div class="home-indicator" aria-hidden="true"></div>
+</main>
+</body>
+</html>

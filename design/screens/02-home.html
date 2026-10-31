@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=390, initial-scale=1">
+  <title>마진로그 · 홈</title>
+  <link rel="stylesheet" href="../tokens.css">
+  <style>
+    /* 02 home: screen-scoped styles. Every value traces to tokens.css. */
+    .store { display: inline-flex; align-items: center; gap: var(--s-1); font-size: var(--fs-body); font-weight: 700; color: var(--c-text); }
+    .store svg { color: var(--c-text-3); }
+    .appbar .spacer { flex: 1; }
+    .bell { position: relative; }
+    .bell .dot { position: absolute; top: 9px; right: 10px; width: 6px; height: 6px; border-radius: var(--r-full); background: var(--c-loss); }
+
+    .content { gap: var(--s-4); padding-top: var(--s-2); }
+    .greet { font-size: var(--fs-title); font-weight: 700; letter-spacing: -.02em; line-height: 1.3; }
+
+    /* profit hero */
+    .hero { padding: var(--s-5); }
+    .hero-top { display: flex; align-items: center; justify-content: space-between; }
+    .hero-amt { margin-top: var(--s-2); font-size: var(--fs-display); font-weight: 800; letter-spacing: -.02em; line-height: 1.2; }
+    .hero-amt .unit { font-size: var(--fs-title); font-weight: 700; margin-left: 2px; }
+    .hero-sub { margin-top: var(--s-2); font-size: var(--fs-sm); color: var(--c-text-2); }
+    .hero-sub b { color: var(--c-primary); font-weight: 700; }
+
+    /* sales / expense */
+    .minis { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-3); }
+    .mini .card-title { display: flex; align-items: center; gap: 6px; }
+    .mini .dot { width: 8px; height: 8px; border-radius: var(--r-full); }
+    .dot-sales { background: var(--chart-2); }
+    .dot-cost { background: var(--chart-3); }
+    .mini .amount { display: block; margin-top: var(--s-2); font-size: var(--fs-h); letter-spacing: -.01em; }
+
+    /* savings banner */
+    .save { display: flex; align-items: center; gap: var(--s-3); padding: var(--s-4); border-radius: var(--r-lg); background: var(--c-primary-50); color: var(--c-text); text-decoration: none; }
+    .save-ico { width: 40px; height: 40px; flex: none; border-radius: var(--r-md); background: var(--c-surface); color: var(--c-primary); display: grid; place-items: center; }
+    .save .grow { flex: 1; min-width: 0; }
+    .save .t1 { font-size: var(--fs-body); font-weight: 700; }
+    .save .t1 b { color: var(--c-primary); }
+    .save .t2 { margin-top: 2px; font-size: var(--fs-sm); color: var(--c-text-2); }
+    .save .go { display: inline-flex; align-items: center; font-size: var(--fs-sm); font-weight: 700; color: var(--c-primary); flex: none; }
+
+    /* quick actions */
+    .actions { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-2); }
+    .actions .btn { text-decoration: none; font-size: var(--fs-body); }
+
+    /* recent upload */
+    .recent { padding: 0 var(--s-4); }
+    .doc-ico { width: 40px; height: 40px; flex: none; border-radius: var(--r-md); background: var(--c-bg); color: var(--c-text-2); display: grid; place-items: center; }
+    .tab { text-decoration: none; }
+  </style>
+</head>
+<body>
+<main class="frame">
+  <div class="statusbar">
+    <span class="num">9:41</span>
+    <span class="sb-icons" aria-hidden="true">
+      <svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+      <svg width="16" height="12" viewBox="0 0 16 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M1.5 4.2a9.5 9.5 0 0 1 13 0"/><path d="M4 7a6 6 0 0 1 8 0"/><circle cx="8" cy="10" r="1.3" fill="currentColor" stroke="none"/></svg>
+      <svg width="27" height="13" viewBox="0 0 27 13" fill="none"><rect x=".5" y=".5" width="23" height="12" rx="3.5" stroke="currentColor" opacity=".4"/><rect x="2" y="2" width="20" height="9" rx="2" fill="currentColor"/><path d="M25 4.5v4a2 2 0 0 0 0-4z" fill="currentColor" opacity=".4"/></svg>
+    </span>
+  </div>
+
+  <header class="appbar">
+    <span class="store">한끼식당
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+    </span>
+    <span class="spacer"></span>
+    <button class="icon-btn bell" aria-label="알림">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+      <span class="dot"></span>
+    </button>
+  </header>
+
+  <section class="content">
+    <h1 class="greet">안녕하세요,<br>김민지 사장님</h1>
+
+    <div class="card hero">
+      <div class="hero-top">
+        <span class="card-title">10월 순수익</span>
+        <span class="chip chip-good">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
+          전월 대비 +14.1%
+        </span>
+      </div>
+      <p class="hero-amt num">3,880,000<span class="unit">원</span></p>
+      <p class="hero-sub">순이익률 <b class="num">21.1%</b></p>
+    </div>
+
+    <div class="minis">
+      <div class="card mini">
+        <span class="card-title"><i class="dot dot-sales"></i>매출</span>
+        <span class="amount">18,420,000원</span>
+      </div>
+      <div class="card mini">
+        <span class="card-title"><i class="dot dot-cost"></i>지출</span>
+        <span class="amount">14,540,000원</span>
+      </div>
+    </div>
+
+    <a class="save" href="09-compare.html">
+      <span class="save-ico">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.6 2.6A2 2 0 0 0 11.2 2H4a2 2 0 0 0-2 2v7.2a2 2 0 0 0 .6 1.4l8.7 8.7a2.4 2.4 0 0 0 3.4 0l6.6-6.6a2.4 2.4 0 0 0 0-3.4z"/><circle cx="7.5" cy="7.5" r="1.5" fill="currentColor"/></svg>
+      </span>
+      <span class="grow">
+        <span class="t1" style="display:block">월 <b class="num">312,000원</b> 절감 가능</span>
+        <span class="t2" style="display:block">양파·식용유가 동네 평균보다 비싸요</span>
+      </span>
+      <span class="go">비교
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+      </span>
+    </a>
+
+    <div class="actions">
+      <a class="btn btn-primary" href="03-upload.html">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3.5"/></svg>
+        영수증 촬영
+      </a>
+      <a class="btn btn-secondary" href="07-sales-input.html">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+        매출 입력
+      </a>
+    </div>
+
+    <div class="section-title">최근 업로드 <a href="06-ledger.html">장부 보기</a></div>
+    <div class="card recent">
+      <div class="row">
+        <span class="doc-ico">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 2h14v20l-3-2-2 2-2-2-2 2-2-2-3 2z"/><path d="M9 7h6"/><path d="M9 11h6"/><path d="M9 15h4"/></svg>
+        </span>
+        <span class="grow">
+          <span class="t1" style="display:block">대성유통</span>
+          <span class="t2" style="display:block">10/28 · 거래명세서 · 품목 4개</span>
+        </span>
+        <span class="amount minus">-181,600원</span>
+      </div>
+    </div>
+  </section>
+
+  <nav class="tabbar" aria-label="하단 탭">
+    <a class="tab is-active" href="02-home.html" aria-current="page">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg>홈</a>
+    <a class="tab" href="06-ledger.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8"/><path d="M8 12h8"/><path d="M8 16h5"/></svg>장부</a>
+    <a class="tab" href="08-report.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h16"/><path d="M7 16v-5"/><path d="M12 16V7"/><path d="M17 16v-8"/></svg>리포트</a>
+    <a class="tab" href="09-compare.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18"/><path d="M5 21h14"/><path d="M3 9l3-6 3 6a3 3 0 0 1-6 0z"/><path d="M15 9l3-6 3 6a3 3 0 0 1-6 0z"/><path d="M5 5h14"/></svg>비교</a>
+    <a class="tab" href="11-suppliers.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l1.5-5h15L21 9"/><path d="M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0"/><path d="M5 12v9h14v-9"/><path d="M10 21v-5h4v5"/></svg>공급처</a>
+  </nav>
+  <div class="home-indicator"></div>
+</main>
+</body>
+</html>

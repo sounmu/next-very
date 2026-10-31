@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=390, initial-scale=1">
+<title>마진로그 - 양파 20kg 비교 상세</title>
+<link rel="stylesheet" href="../tokens.css">
+<style>
+  .content { gap: var(--s-2); }
+  .summary { display: flex; flex-direction: column; gap: var(--s-2); }
+  .summary-top { display: flex; justify-content: space-between; align-items: center; }
+  .summary-meta { font-size: var(--fs-sm); color: var(--c-text-3); }
+  .price-pair { display: flex; align-items: flex-end; gap: var(--s-6); }
+  .price-pair .lbl { font-size: var(--fs-sm); color: var(--c-text-2); }
+  .price-pair .mine { font-size: var(--fs-title); font-weight: 800; color: var(--c-loss); margin-top: 2px; }
+  .price-pair .median { font-size: var(--fs-h); font-weight: 700; color: var(--c-text); margin-top: 2px; }
+  .vs { font-size: var(--fs-sm); color: var(--c-text-3); padding-bottom: var(--s-1); }
+
+  .chart-card { display: flex; flex-direction: column; gap: var(--s-2); }
+  .chart-head { display: flex; justify-content: space-between; align-items: center; }
+  .chart-head .sub { font-size: var(--fs-xs); color: var(--c-text-3); }
+  .legend { display: flex; gap: var(--s-3); font-size: var(--fs-xs); color: var(--c-text-2); }
+  .legend span { display: inline-flex; align-items: center; gap: var(--s-1); }
+  .sw { width: 12px; height: 3px; border-radius: var(--r-full); }
+  .sw-mine { background: var(--c-loss); }
+  .sw-mkt { background: var(--c-primary); }
+  svg.chart { display: block; width: 100%; height: auto; overflow: visible; }
+  .bar { fill: var(--c-primary-50); }
+  .bar-mid { fill: var(--chart-2); opacity: .55; }
+  .bar-mine { fill: var(--c-loss-50); }
+  .ln-median { stroke: var(--c-text-2); stroke-width: 1.5; stroke-dasharray: 4 3; }
+  .ln-mine { stroke: var(--c-loss); stroke-width: 2; }
+  .ln-base { stroke: var(--c-line); stroke-width: 1; }
+  .ln-mkt { fill: none; stroke: var(--c-primary); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .ln-buy { fill: none; stroke: var(--c-loss); stroke-width: 2; stroke-linecap: round; }
+  .dot-buy { fill: var(--c-surface); stroke: var(--c-loss); stroke-width: 2; }
+  .t-axis { font: 500 var(--fs-xs) var(--font); fill: var(--c-text-3); }
+  .t-mk { font: 700 var(--fs-xs) var(--font); }
+  .t-mk-mine { fill: var(--c-loss); }
+  .t-mk-med { fill: var(--c-text-2); }
+  .t-mk-mkt { fill: var(--c-primary); }
+
+  .stats { padding: var(--s-3) var(--s-4); }
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; row-gap: var(--s-2); column-gap: var(--s-4); padding-bottom: var(--s-3); border-bottom: 1px solid var(--c-line); }
+  .stat { display: flex; justify-content: space-between; align-items: baseline; }
+  .stat .k { font-size: var(--fs-sm); color: var(--c-text-2); }
+  .stat .v { font-size: var(--fs-sm); font-weight: 700; }
+  .stat .v.is-mine { color: var(--c-loss); }
+  .saving { display: flex; justify-content: space-between; align-items: center; padding-top: var(--s-3); }
+  .saving .k { font-size: var(--fs-sm); font-weight: 700; }
+  .saving .f { font-size: var(--fs-xs); color: var(--c-text-3); margin-top: 2px; }
+  .saving .v { font-size: var(--fs-h); font-weight: 800; color: var(--c-profit); }
+
+  .privacy { display: flex; gap: var(--s-3); align-items: flex-start; padding: var(--s-3) var(--s-4); border-radius: var(--r-lg); border: 1px solid var(--c-line); }
+  .privacy svg { flex: none; color: var(--c-primary); margin-top: 1px; }
+  .privacy .t1 { font-size: var(--fs-sm); font-weight: 700; }
+  .privacy .t2 { font-size: var(--fs-xs); color: var(--c-text-2); margin-top: 2px; line-height: 1.5; word-break: keep-all; }
+</style>
+</head>
+<body>
+<main class="frame">
+  <div class="statusbar">
+    <span class="num">9:41</span>
+    <span class="sb-icons" aria-hidden="true">
+      <svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+      <svg width="16" height="12" viewBox="0 0 16 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M1.5 4.2a9.5 9.5 0 0 1 13 0"/><path d="M4 7a6 6 0 0 1 8 0"/><circle cx="8" cy="10" r="1.3" fill="currentColor" stroke="none"/></svg>
+      <svg width="27" height="13" viewBox="0 0 27 13" fill="none"><rect x=".5" y=".5" width="23" height="12" rx="3.5" stroke="currentColor" opacity=".4"/><rect x="2" y="2" width="20" height="9" rx="2" fill="currentColor"/><path d="M25 4.5v4a2 2 0 0 0 0-4z" fill="currentColor" opacity=".4"/></svg>
+    </span>
+  </div>
+
+  <header class="appbar">
+    <button class="icon-btn" aria-label="뒤로 가기">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <h1>양파 20kg</h1>
+  </header>
+
+  <section class="content">
+    <div class="card summary">
+      <div class="summary-top">
+        <span class="summary-meta">마포구 한식 148곳 · 최근 30일</span>
+        <span class="chip chip-bad">상위 18%로 비싸요</span>
+      </div>
+      <div class="price-pair">
+        <div>
+          <div class="lbl">내 단가</div>
+          <div class="mine num">28,000원</div>
+        </div>
+        <div class="vs">vs</div>
+        <div>
+          <div class="lbl">중앙값</div>
+          <div class="median num">24,500원</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card chart-card">
+      <div class="chart-head">
+        <span class="section-title">가격 분포</span>
+        <span class="sub">1,000원 단위</span>
+      </div>
+      <svg class="chart" viewBox="0 0 326 90" role="img" aria-label="148곳 양파 20kg 단가 분포. 중앙값 24,500원, 내 가격 28,000원">
+        <rect class="bar"      x="2"     y="59.6" width="32" height="14.4" rx="3"/>
+        <rect class="bar"      x="38.2"  y="21.8" width="32" height="52.2" rx="3"/>
+        <rect class="bar-mid"  x="74.4"  y="20"   width="32" height="54"   rx="3"/>
+        <rect class="bar-mid"  x="110.7" y="30.8" width="32" height="43.2" rx="3"/>
+        <rect class="bar"      x="146.9" y="43.4" width="32" height="30.6" rx="3"/>
+        <rect class="bar"      x="183.1" y="50.6" width="32" height="23.4" rx="3"/>
+        <rect class="bar"      x="219.3" y="59.6" width="32" height="14.4" rx="3"/>
+        <rect class="bar-mine" x="255.6" y="54.2" width="32" height="19.8" rx="3"/>
+        <rect class="bar-mine" x="291.8" y="59.6" width="32" height="14.4" rx="3"/>
+        <line class="ln-base" x1="0" y1="74.5" x2="326" y2="74.5"/>
+        <line class="ln-median" x1="126.8" y1="16" x2="126.8" y2="74"/>
+        <line class="ln-mine" x1="253.6" y1="16" x2="253.6" y2="74"/>
+        <text class="t-mk t-mk-med"  x="126.8" y="10" text-anchor="middle">중앙값</text>
+        <text class="t-mk t-mk-mine" x="253.6" y="10" text-anchor="middle">내 가격</text>
+        <text class="t-axis" x="0"     y="88">21,000</text>
+        <text class="t-axis" x="126.8" y="88" text-anchor="middle">24,500</text>
+        <text class="t-axis" x="253.6" y="88" text-anchor="middle">28,000</text>
+        <text class="t-axis" x="326"   y="88" text-anchor="end">30,000</text>
+      </svg>
+    </div>
+
+    <div class="card chart-card">
+      <div class="chart-head">
+        <span class="section-title">30일 가격 추이</span>
+        <span class="legend">
+          <span><i class="sw sw-mkt"></i>시장 중앙값</span>
+          <span><i class="sw sw-mine"></i>내 구매</span>
+        </span>
+      </div>
+      <svg class="chart" viewBox="0 0 326 72" role="img" aria-label="최근 30일 시장 중앙값은 24,500원 수준, 내 구매가는 28,000원으로 유지">
+        <line class="ln-base" x1="0" y1="58.5" x2="280" y2="58.5"/>
+        <polyline class="ln-mkt" points="0,38 46.7,38.8 93.3,38.8 140,39.6 186.7,40.4 233.3,40.4 280,41.2"/>
+        <polyline class="ln-buy" points="28,12 112,12 196,12 270,12"/>
+        <circle class="dot-buy" cx="28"  cy="12" r="3.5"/>
+        <circle class="dot-buy" cx="112" cy="12" r="3.5"/>
+        <circle class="dot-buy" cx="196" cy="12" r="3.5"/>
+        <circle class="dot-buy" cx="270" cy="12" r="3.5"/>
+        <text class="t-mk t-mk-mine" x="326" y="16" text-anchor="end">28,000</text>
+        <text class="t-mk t-mk-mkt"  x="326" y="45" text-anchor="end">24,500</text>
+        <text class="t-axis" x="0"   y="71">9/29</text>
+        <text class="t-axis" x="280" y="71" text-anchor="end">10/28</text>
+      </svg>
+    </div>
+
+    <div class="card stats">
+      <div class="stat-grid">
+        <div class="stat"><span class="k">중앙값</span><span class="v num">24,500원</span></div>
+        <div class="stat"><span class="k">하위 25%</span><span class="v num">23,000원</span></div>
+        <div class="stat"><span class="k">내 단가</span><span class="v num is-mine">28,000원</span></div>
+        <div class="stat"><span class="k">월 사용량</span><span class="v num">8박스</span></div>
+      </div>
+      <div class="saving">
+        <div>
+          <div class="k">월 절감 가능</div>
+          <div class="f num">8박스 × (28,000원 - 23,800원)</div>
+        </div>
+        <div class="v num">33,600원</div>
+      </div>
+    </div>
+
+    <div class="privacy">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>
+      <div>
+        <div class="t1">익명으로 모은 가격이에요</div>
+        <div class="t2">같은 품목을 산 매장이 최소 20곳 이상일 때만 보여드려요. 개별 매장은 식별할 수 없어요.</div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="bottom-cta">
+    <button class="btn btn-primary">더 싼 공급처 보기
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+    </button>
+  </footer>
+  <div class="home-indicator"></div>
+</main>
+</body>
+</html>
