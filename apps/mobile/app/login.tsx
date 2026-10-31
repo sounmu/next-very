@@ -7,7 +7,7 @@ import { useSession } from '@/session/SessionProvider';
 import { Button, Notice, Screen, TextButton, TextField, colors, lineWidth, space, typography } from '@/ui';
 
 export default function LoginScreen() {
-  const { startDemo, startShowcase } = useSession();
+  const { startShowcase } = useSession();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -84,11 +84,8 @@ export default function LoginScreen() {
       </View>
 
       <View style={styles.demo}>
-        <Button variant="secondary" label="데모로 시작하기" onPress={() => enter(startDemo)} disabled={entering} />
-        <Notice align="center">계정 없이 이 기기에서만 새 가게를 만들어 봐요</Notice>
-        <View style={styles.center}>
-          <TextButton label="시연 가게 둘러보기" onPress={() => enter(startShowcase)} disabled={entering} />
-        </View>
+        <Button variant="secondary" label="시연 가게 둘러보기" onPress={() => enter(startShowcase)} disabled={entering} />
+        <Notice align="center">계정 없이 한끼식당 데이터로 둘러봐요</Notice>
         {enterError ? <Text style={styles.error}>{enterError}</Text> : null}
       </View>
     </Screen>
@@ -102,7 +99,6 @@ const styles = StyleSheet.create({
   tagline: { ...typography.body, color: colors.text2 },
   link: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.s1 },
   demo: { gap: space.s2, marginTop: space.s4, paddingTop: space.s6, borderTopWidth: lineWidth, borderTopColor: colors.line },
-  center: { alignItems: 'center' },
   warn: { ...typography.secondary, color: colors.warn },
   error: { ...typography.caption, color: colors.loss, textAlign: 'center' },
 });

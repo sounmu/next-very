@@ -42,7 +42,6 @@ export function localToday(): string {
 
 export type Session = Saved & {
   loading: boolean;
-  startDemo: () => Promise<void>;
   startShowcase: () => Promise<void>;
   leave: () => Promise<void>;
   completeSetup: (setup: StoreSetup) => Promise<void>;
@@ -70,7 +69,8 @@ async function load(): Promise<Saved> {
     console.warn('[session] saved data did not match the schema; starting fresh', parsed.error.issues);
     return EMPTY;
   }
-  return parsed.data;
+  // "데모로 시작하기" was removed; a device left in the new-store mode opens the showcase instead.
+  return parsed.data.mode === 'demo' ? { ...parsed.data, mode: 'showcase' } : parsed.data;
 }
 
 const newStoreId = () => `store-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -119,7 +119,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const value: Session = {
     ...state,
     loading,
-    startDemo: () => commit((saved) => ({ ...saved, mode: 'demo' })),
     startShowcase: () => commit((saved) => ({ ...saved, mode: 'showcase' })),
     leave: () => commit((saved) => ({ ...saved, mode: null })),
     completeSetup: (setup) =>

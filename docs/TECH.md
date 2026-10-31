@@ -293,7 +293,7 @@ Vercel 함수의 요청 본문 한도는 4.5MB다. 앱이 사진을 긴 변 1600
 
 ## 로그인과 가게 세션 (앱, 1단계)
 
-- `apps/mobile/src/session/SessionProvider.tsx`: 세션 상태 `mode`(`null` 로그아웃, `'demo'` 이 기기의 새 가게, `'showcase'` 한끼식당 서버 데이터), 가게 정보, 메뉴, 완료 안내 표시 여부. AsyncStorage 키 `marginlog.session.v1` 하나에 JSON으로 저장하고 읽을 때 Zod로 검사한다. 비밀번호와 토큰은 저장하지 않는다.
+- `apps/mobile/src/session/SessionProvider.tsx`: 세션 상태 `mode`(`null` 로그아웃, `'showcase'` 한끼식당 서버 데이터, `'demo'` 이 기기의 새 가게: 진입을 없애서 읽을 때 `'showcase'`로 바꾼다), 가게 정보, 메뉴, 완료 안내 표시 여부. AsyncStorage 키 `marginlog.session.v1` 하나에 JSON으로 저장하고 읽을 때 Zod로 검사한다. 비밀번호와 토큰은 저장하지 않는다.
 - 쓰기는 한 줄로 줄 세워 하나씩 하고, 저장이 성공한 뒤에만 화면 상태를 바꾼다. `completeSetup`은 가게가 이미 있으면 아무것도 하지 않는다. 예시 메뉴는 id(`example-{업종}-{메뉴}`)가 없을 때만 넣는다(`seedMenusOnce`).
 - 새 가게 재고(`storeStock.ts`): 재고는 재료 이름마다 하나(`StockItem`, 기본 단위 수량)이고 세션에 `stock`, `sales`로 저장한다. `sellOne`은 레시피를 기본 단위로 바꿔 모든 재료가 충분할 때만 한꺼번에 빼고, 하나라도 모자라거나 없거나 단위가 다르면 아무것도 바꾸지 않는다. 판매 기록(`StoreSale`)은 실제로 뺀 양(`lines`)을 들고 있어 레시피를 고친 뒤에도 실행 취소가 정확히 되돌린다. `seedStockOnce`는 재고가 없는 재료만 더한다. 가게 설정, 레시피 저장, 앱 시작 때 부르므로 기존 가게도 한 번만 재고가 생긴다. 시연 가게(한끼식당)의 서버 재고·정산과는 별개다.
 - `apps/mobile/src/session/auth.ts`: `signInWithEmail`, `signUpWithEmail`은 지금 "서버에 연결되지 않았어요"를 돌려준다. 2단계에서는 이 두 함수만 실제 인증으로 바꾼다.

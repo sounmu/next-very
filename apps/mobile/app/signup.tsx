@@ -7,7 +7,7 @@ import { useSession } from '@/session/SessionProvider';
 import { Button, Header, Screen, TextButton, TextField, colors, lineWidth, space, typography } from '@/ui';
 
 export default function SignupScreen() {
-  const { startDemo } = useSession();
+  const { startShowcase } = useSession();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -36,12 +36,12 @@ export default function SignupScreen() {
     }
   }
 
-  async function enterDemo() {
+  async function enterShowcase() {
     if (entering) return;
     setEntering(true);
     setEnterError(null);
     try {
-      await startDemo();
+      await startShowcase();
     } catch {
       setEnterError('시작하지 못했어요. 다시 시도해 주세요');
       setEntering(false);
@@ -93,7 +93,7 @@ export default function SignupScreen() {
       </View>
 
       <View style={styles.demo}>
-        <Button variant="secondary" label="데모로 시작하기" onPress={enterDemo} disabled={entering} />
+        <Button variant="secondary" label="시연 가게 둘러보기" onPress={enterShowcase} disabled={entering} />
         {enterError ? <Text style={styles.error}>{enterError}</Text> : null}
       </View>
     </Screen>

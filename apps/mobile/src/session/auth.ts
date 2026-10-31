@@ -5,8 +5,8 @@
  */
 export type AuthResult = { ok: true } | { ok: false; message: string };
 
-const NOT_CONNECTED_SIGN_IN = '아직 로그인 서버에 연결되지 않았어요. 아래 데모로 시작하기로 둘러볼 수 있어요.';
-const NOT_CONNECTED_SIGN_UP = '아직 회원가입 서버에 연결되지 않았어요. 계정은 만들어지지 않았고, 아래 데모로 시작하기로 둘러볼 수 있어요.';
+const NOT_CONNECTED_SIGN_IN = '아직 로그인 서버에 연결되지 않았어요. 아래 시연 가게 둘러보기로 둘러볼 수 있어요.';
+const NOT_CONNECTED_SIGN_UP = '아직 회원가입 서버에 연결되지 않았어요. 계정은 만들어지지 않았고, 아래 시연 가게 둘러보기로 둘러볼 수 있어요.';
 
 export async function signInWithEmail(_email: string, _password: string): Promise<AuthResult> {
   return { ok: false, message: NOT_CONNECTED_SIGN_IN };
