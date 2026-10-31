@@ -26,7 +26,7 @@ apps/
       (tabs)/_layout.tsx               하단 탭: 홈 / 기록 / 비교 / 구매
       (tabs)/index.tsx                 홈 대시보드
       (tabs)/compare.tsx               비교할 재료 목록과 추천 요약
-      (tabs)/records.tsx               구매 기록: 업로드, 대기 명세서, 목록, 검색
+      (tabs)/records.tsx               구매 기록: 영수증 등록 + 버튼, 대기 명세서, 목록, 검색
       (tabs)/shop.tsx                  구매: 공급처 상품, 입고 대기, 장바구니 진입
       ingredients/index.tsx            식재료 목록
       ingredients/[id].tsx             식재료 상세: 단위, 최근 단가, 이력, 별칭

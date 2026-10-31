@@ -84,10 +84,11 @@ export const radius = {
   full: 999,
 } as const;
 
-/** DESIGN.md 7: cards have no shadow; only floating sheets do. */
+/** DESIGN.md 7: cards have no shadow; only floating sheets and the floating add button do. */
 export const shadow = {
   card: {},
   sheet: { boxShadow: '0 -8px 24px rgba(23,26,24,0.08)' },
+  fab: { boxShadow: '0 4px 12px rgba(23,26,24,0.16)' },
 } satisfies Record<string, ViewStyle>;
 
 export const control = {
@@ -101,6 +102,8 @@ export const control = {
   chipHeight: 24,
   filterChipHeight: 36,
   tabBarHeight: 60,
+  /** floating add button (DESIGN.md 8.2) */
+  fab: 56,
   /** desktop browser demos are centered at this width */
   maxContentWidth: 430,
 } as const;
