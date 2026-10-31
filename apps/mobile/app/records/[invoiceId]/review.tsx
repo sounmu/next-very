@@ -1,11 +1,11 @@
 import { formatUnitPrice, formatWon, unitLabel, type BaseUnit, type Unit } from '@marginlog/core';
 import type { InvoiceConfirm, InvoiceDetailResponse } from '@marginlog/core/src/api/invoices';
-import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { router, useLocalSearchParams, usePreventRemove } from 'expo-router';
+import { useRef, useState } from 'react';
 import { Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ApiError } from '@/api';
-import { invoiceImageUrl, useConfirmInvoice, useIngredientOptions, useInvoice } from '@/api/records';
+import { invoiceImageUrl, useConfirmInvoice, useDiscardInvoice, useIngredientOptions, useInvoice } from '@/api/records';
 import {
   Button,
   Card,
@@ -137,6 +137,36 @@ function ReviewForm({ detail, header }: { detail: InvoiceDetailResponse; header:
   const [pickerFor, setPickerFor] = useState<string | null>(null);
   const [imageOpen, setImageOpen] = useState(false);
   const [leaveOpen, setLeaveOpen] = useState(false);
+  const discard = useDiscardInvoice(invoice.id);
+  const [leaving, setLeaving] = useState(false);
+  const pendingLeave = useRef<(() => void) | null>(null);
+  const disablePrevention = usePreventRemove(!leaving, ({ repeat }) => {
+    pendingLeave.current = repeat;
+    discard.reset();
+    setLeaveOpen(true);
+  });
+
+  function stay() {
+    pendingLeave.current = null;
+    setLeaveOpen(false);
+  }
+
+  function leave() {
+    discard.mutate(undefined, {
+      onSuccess: () => {
+        setLeaving(true);
+        setLeaveOpen(false);
+        const repeat = pendingLeave.current;
+        pendingLeave.current = null;
+        if (repeat) {
+          repeat();
+        } else {
+          disablePrevention();
+          router.replace('/records');
+        }
+      },
+    });
+  }
 
   const ingredientById = new Map((ingredients.data?.ingredients ?? []).map((item) => [item.id, item]));
 
@@ -222,7 +252,11 @@ function ReviewForm({ detail, header }: { detail: InvoiceDetailResponse; header:
       })),
     };
     confirm.mutate(body, {
-      onSuccess: () => router.replace({ pathname: '/records/[invoiceId]/done', params: { invoiceId: invoice.id } }),
+      onSuccess: () => {
+        setLeaving(true);
+        disablePrevention();
+        router.replace({ pathname: '/records/[invoiceId]/done', params: { invoiceId: invoice.id } });
+      },
     });
   }
 
@@ -261,7 +295,7 @@ function ReviewForm({ detail, header }: { detail: InvoiceDetailResponse; header:
         </>
       }
     >
-      {header(dirty ? () => setLeaveOpen(true) : undefined)}
+      {header()}
 
       <Card style={styles.gap}>
         {invoice.hasImage ? (
@@ -458,23 +492,23 @@ function ReviewForm({ detail, header }: { detail: InvoiceDetailResponse; header:
 
       <Sheet
         visible={leaveOpen}
-        title="고친 내용을 버릴까요?"
-        onClose={() => setLeaveOpen(false)}
+        title="저장하지 않고 나갈까요?"
+        onClose={stay}
         actions={
           <>
+            {discard.isError ? <Text style={styles.error}>{`지우지 못했어요. ${discard.error.message}`}</Text> : null}
             <Button
-              label="버리고 나가기"
-              onPress={() => {
-                setLeaveOpen(false);
-                if (router.canGoBack()) router.back();
-                else router.replace('/records');
-              }}
+              label={discard.isError ? '다시 시도' : '저장하지 않고 나가기'}
+              onPress={leave}
+              loading={discard.isPending}
             />
-            <Button label="계속 확인하기" variant="secondary" onPress={() => setLeaveOpen(false)} />
+            <Button label="계속 확인하기" variant="secondary" onPress={stay} disabled={discard.isPending} />
           </>
         }
       >
-        <Text style={typography.body}>저장하지 않은 수정 내용은 사라져요. 명세서는 확인 대기 목록에 남아 있어요.</Text>
+        <Text style={typography.body}>
+          {dirty ? '고친 내용과 올린 사진이 지워져요.' : '올린 사진과 인식 결과가 지워져요.'} 기록하려면 사진을 다시 올려 주세요.
+        </Text>
       </Sheet>
 
       {invoice.hasImage ? (

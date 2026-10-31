@@ -1,5 +1,4 @@
 import type { DashboardResponse } from '@marginlog/core/src/api/dashboard';
-import { formatDateKo } from '@marginlog/core';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -97,19 +96,6 @@ export default function HomeScreen() {
   for (const change of data.priceChanges) names.set(change.ingredientId, change.name);
 
   const tasks: Task[] = [];
-  const review = data.needsReview;
-  const firstReview = review[0];
-  if (firstReview) {
-    tasks.push({
-      key: 'review',
-      title: `확인할 명세서 ${review.length}건`,
-      subtitle: [firstReview.supplier, firstReview.date ? formatDateKo(firstReview.date) : null].filter(Boolean).join(' · '),
-      onPress: () =>
-        review.length === 1
-          ? router.push({ pathname: '/records/[invoiceId]/review', params: { invoiceId: firstReview.invoiceId } })
-          : router.navigate('/records'),
-    });
-  }
   const cause = data.alert?.ingredientIds[0];
   if (cause) {
     const offer = compare.data?.items.find((item) => item.ingredient.id === cause)?.recommended;

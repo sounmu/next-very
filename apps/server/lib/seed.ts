@@ -57,18 +57,6 @@ export async function resetAndSeed(db: Db): Promise<void> {
       })),
     );
 
-    await tx.insert(invoices).values(
-      seed.invoices.map((inv) => ({
-        id: inv.id,
-        supplierId: inv.supplierId ?? null,
-        date: inv.date ?? null,
-        status: inv.status,
-        extraction: inv.extraction,
-        isDemo: inv.isDemo,
-        createdAt: new Date(inv.createdAt),
-      })),
-    );
-
     await tx.insert(purchases).values(
       seed.purchases.map((p) => ({
         id: p.id,

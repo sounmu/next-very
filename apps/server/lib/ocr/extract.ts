@@ -157,6 +157,6 @@ export async function extractInvoice(image: Buffer, mime: string): Promise<Extra
   } catch (err) {
     if (process.env.DEMO_FALLBACK === "0") throw err;
     console.warn(`[ocr] using demo extract for ${mime} upload:`, err instanceof Error ? err.message : err);
-    return { result: structuredClone(seed.invoices[0].extraction), isDemo: true };
+    return { result: structuredClone(seed.demoInvoice.extraction), isDemo: true };
   }
 }

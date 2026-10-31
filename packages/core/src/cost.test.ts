@@ -11,7 +11,7 @@ const jeyuk = menus[0];
 const pork = ingredients[0];
 
 function confirmedInvoice(): Purchase {
-  const invoice = seed.invoices[0];
+  const invoice = seed.demoInvoice;
   const item = invoice.extraction.items[0];
   if (item.packSize === null || item.packUnit === null || invoice.supplierId === undefined) {
     throw new Error('Incomplete demo extraction');

@@ -5,14 +5,12 @@ import { useDeferredValue, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
-import { useInvoices, usePurchases } from '@/api/records';
+import { usePurchases } from '@/api/records';
 import {
   Card,
-  Chip,
   Header,
   ListRow,
   Screen,
-  SectionHeader,
   StateView,
   TextField,
   colors,
@@ -35,12 +33,6 @@ export default function RecordsScreen() {
   const [query, setQuery] = useState('');
   const q = useDeferredValue(query.trim());
   const purchases = usePurchases({ q: q || undefined });
-  const invoices = useInvoices();
-
-  const pending = useMemo(
-    () => invoices.data?.invoices.filter((invoice) => invoice.status === 'extracted') ?? [],
-    [invoices.data],
-  );
 
   const groups = useMemo(() => {
     const byDate = new Map<string, PurchaseListItem[]>();
@@ -69,42 +61,6 @@ export default function RecordsScreen() {
           }
         />
 
-        {invoices.isError ? (
-          <Card>
-            <StateView
-              kind="error"
-              title="확인할 명세서를 불러오지 못했어요"
-              message={invoices.error.message}
-              actionLabel="다시 시도"
-              onAction={() => invoices.refetch()}
-            />
-          </Card>
-        ) : pending.length > 0 ? (
-          <>
-            <SectionHeader title="확인이 필요한 기록" />
-            <Card style={styles.listCard}>
-              {pending.map((invoice, index) => (
-                <ListRow
-                  key={invoice.id}
-                  title={invoice.supplierName || invoice.extraction.supplier || '구매처 확인 필요'}
-                  subtitle={[invoice.date ? formatDateKo(invoice.date) : null, `${invoice.extraction.items.length}개 품목 · ${formatWon(invoice.extraction.total)}`]
-                    .filter(Boolean)
-                    .join(' · ')}
-                  value={
-                    <View style={styles.chips}>
-                      <Chip label="확인 필요" tone="warning" />
-                    </View>
-                  }
-                  chevron
-                  divider={index < pending.length - 1}
-                  onPress={() => router.push({ pathname: '/records/[invoiceId]/review', params: { invoiceId: invoice.id } })}
-                />
-              ))}
-            </Card>
-          </>
-        ) : null}
-
-        <SectionHeader title="구매 내역" />
         <TextField label="검색" value={query} onChangeText={setQuery} placeholder="재료, 별칭, 구매처로 찾기" />
 
         {purchases.isPending ? (
@@ -200,6 +156,5 @@ const styles = StyleSheet.create({
   textActionLabel: { ...typography.secondary, color: colors.text, fontWeight: '600' },
   pressed: { opacity: opacity.pressed },
   listCard: { paddingVertical: 0 },
-  chips: { flexDirection: 'row', gap: space.s1 },
   group: { gap: space.s2 },
 });

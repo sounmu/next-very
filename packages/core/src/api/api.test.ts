@@ -40,12 +40,12 @@ import {
   ProductsResponseSchema,
 } from './shop';
 
-const { ingredients, suppliers, purchases, menus, products, invoices, marketIndex } = seed;
+const { ingredients, suppliers, purchases, menus, products, demoInvoice, marketIndex } = seed;
 const ingredientById = new Map(ingredients.map((ingredient) => [ingredient.id, ingredient]));
 const supplierName = (id: string) => suppliers.find((supplier) => supplier.id === id)!.name;
 const pork = ingredientById.get('pork-shoulder')!;
 const jeyuk = menus[0];
-const invoice = invoices[0];
+const invoice = demoInvoice;
 const createdAt = '2026-10-31T00:00:00.000Z';
 
 const menuWithCost = (menu: (typeof menus)[number]) => ({

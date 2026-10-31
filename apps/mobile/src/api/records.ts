@@ -16,7 +16,7 @@ import {
 } from '@marginlog/core/src/api/purchases';
 import { z } from 'zod';
 
-import { API_URL, apiFetch } from './client';
+import { API_URL, ApiError, apiFetch } from './client';
 
 export type PurchaseFilter = { q?: string; month?: string };
 
@@ -132,6 +132,25 @@ export function useConfirmInvoice(id: string) {
       queryClient.setQueryData<ConfirmResult>(recordKeys.confirmResult(id), result);
       return invalidatePurchaseViews(queryClient);
     },
+  });
+}
+
+/** DELETE /api/invoices/[id]: discards an unsaved invoice when the owner leaves the review screen. 404 means it is already gone. */
+export function useDiscardInvoice(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      try {
+        await apiFetch(`/api/invoices/${encodeURIComponent(id)}`, { method: 'DELETE' }, z.unknown());
+      } catch (error) {
+        if (!(error instanceof ApiError && error.status === 404)) throw error;
+      }
+    },
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['invoices'] }),
+        queryClient.invalidateQueries({ queryKey: ['dashboard'] }),
+      ]),
   });
 }
 

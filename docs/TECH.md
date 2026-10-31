@@ -56,7 +56,7 @@ apps/
       menus/route.ts                   GET
       menus/[id]/route.ts              GET, PUT, DELETE
       invoices/route.ts                GET, POST
-      invoices/[id]/route.ts           GET
+      invoices/[id]/route.ts           GET, DELETE
       invoices/[id]/image/route.ts     GET
       invoices/[id]/confirm/route.ts   POST
       compare/route.ts                 GET
@@ -267,6 +267,7 @@ Supabase transaction pooler(6543)를 쓰므로 postgres.js에 `prepare: false`�
 | GET | `/api/invoices` | 기록 | 명세서 목록. `?status=extracted`로 확인 대기만 |
 | POST | `/api/invoices` | 기록 | multipart `image`. 사진 저장 후 OCR, Invoice 반환 |
 | GET | `/api/invoices/[id]` | 인식 결과 확인 | Invoice, 품목별 재료 연결 제안, 구매처 연결 제안 |
+| DELETE | `/api/invoices/[id]` | 인식 결과 확인 | 저장하지 않고 나간 명세서와 사진을 지운다. 저장한 명세서는 409, 없으면 404 |
 | GET | `/api/invoices/[id]/image` | 인식 결과 확인 | 원본 사진. 사진이 없으면 404 |
 | POST | `/api/invoices/[id]/confirm` | 인식 결과 확인 | 고친 품목으로 Purchase(`source: 'receipt'`) 생성. 이미 confirmed면 409. 바뀐 메뉴 원가 전후 반환 |
 | GET | `/api/compare` | 비교 | 비교할 수 있는 재료 목록과 재료별 추천 요약 |

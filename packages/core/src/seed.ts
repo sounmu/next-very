@@ -98,7 +98,8 @@ const products: SupplierProduct[] = [
   { id: 'product-onion-greenfarm', supplierId: 'greenfarm', ingredientId: 'onion', name: '산지 양파 15kg', packSize: 15, packUnit: 'kg', price: 39000, shippingFee: 3000, minOrderAmount: 30000, isDemo: true },
 ];
 
-const invoices: Invoice[] = [{
+/** Fixed OCR result used when GEMINI_API_KEY is missing. Not inserted into the DB: unsaved invoices are not kept. */
+const demoInvoice: Invoice = {
   id: 'invoice-demo-hanuri-2026-10-31',
   hasImage: false,
   supplierId: 'hanuri',
@@ -115,10 +116,10 @@ const invoices: Invoice[] = [{
     }],
     total: 90000,
   },
-}];
+};
 
 const marketIndex: Record<string, MarketIndex> = {
   'pork-shoulder': { mine: [100, 100, 100, 111], market: [100, 99, 98, 97] },
 };
 
-export const seed = { ingredients, suppliers, purchases, menus, products, invoices, marketIndex };
+export const seed = { ingredients, suppliers, purchases, menus, products, demoInvoice, marketIndex };

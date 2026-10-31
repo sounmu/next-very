@@ -1,6 +1,8 @@
 import { baseOf, currentAndPrevious, isUnit, toBase, unitPricePerBase } from "@marginlog/core";
 import { InvoiceDetailResponseSchema, type InvoiceDetailSupplier } from "@marginlog/core/src/api/invoices";
+import { and, eq } from "drizzle-orm";
 import { getDb } from "../../../../db/client";
+import { invoices } from "../../../../db/schema";
 import { matchIngredient } from "../../../../lib/ocr/aliases";
 import { extractIssues } from "../../../../lib/ocr/validate";
 import { loadInvoices, loadState } from "../../../../lib/repo";
@@ -57,4 +59,18 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   });
 
   return Response.json(InvoiceDetailResponseSchema.parse({ invoice, supplier, items }));
+}
+
+/** Discards an unsaved invoice (the owner left the review screen). The photo row cascades. */
+export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const db = getDb();
+  const deleted = await db
+    .delete(invoices)
+    .where(and(eq(invoices.id, id), eq(invoices.status, "extracted")))
+    .returning({ id: invoices.id });
+  if (deleted.length > 0) return Response.json({ id });
+  const [existing] = await db.select({ id: invoices.id }).from(invoices).where(eq(invoices.id, id));
+  if (!existing) return errorResponse(404, "명세서를 찾을 수 없어요");
+  return errorResponse(409, "저장한 명세서는 지울 수 없어요");
 }
