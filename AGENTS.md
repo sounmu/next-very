@@ -4,13 +4,32 @@
 
 ## 현재 상태
 
-- 지금 레포에 있는 것은 디자인 목업뿐이다: `design/` 아래 정적 HTML 화면 14개와 공통 CSS.
-- 앱 코드, 백엔드, AI 추출 파이프라인은 아직 없다. 추가할 때 이 문서의 구조와 명령 섹션을 같이 갱신한다.
+- 제품 방향이 "메뉴 원가 개선"으로 피봇했다. 기준은 Figma 섹션 "MVP 와이어프레임 · 메뉴 원가 개선"(node 39:353)과 이를 옮긴 `docs/PRODUCT.md`다.
+- `design/` 아래 HTML 화면 14개는 피봇 전 흐름(장부, 순수익, 익명 비교, 공급처)이다. 새 앱에서는 색, 글꼴, 카드 스타일 참고용으로만 쓴다.
+- 04는 와이어프레임의 시뮬레이션 대신 실제 구매처 등록 화면이다(`docs/PRODUCT.md` "와이어프레임과 다른 점").
+- main에 기반이 있다: 공통 코드(`packages/core`), 서버 뼈대(`apps/server`), 앱 뼈대(`apps/mobile`, Expo).
+- 서버는 Next.js 16 App Router(API 라우트만) + Drizzle ORM + Postgres다. Supabase는 나중에 연결하고, 그전까지 로컬 DB는 쓰지 않는다.
+- 기능은 워크트리 세 개에서 만든다: `feat/menu`(`../next-very-menu`, 01·02·08), `feat/supplier`(`../next-very-supplier`, 03·04), `feat/invoice`(`../next-very-invoice`, 05·06·07 + OCR). 스택, 구조, 명령은 `docs/TECH.md`, 작업 계획은 `docs/TEAM.md`에 정했다. 코드를 바꾸면 이 문서와 TECH.md를 같이 갱신한다.
 
 ## 단일 출처
 
-- `design/SPEC.md`: 화면 목록, 화면별 내용, 시연 데이터. 화면과 숫자의 기준이다.
+- `docs/PRODUCT.md`: 새 MVP의 화면 01~08, 흐름, 예외 상태, 시연 데이터. 앱 화면과 숫자의 기준이다.
+- `docs/TECH.md`: 스택, 폴더 구조, 데이터 타입 계약, 원가 계산 규칙, API, OCR 방식.
+- `docs/TEAM.md`: 작업 계획. main 기반, 워크트리별 화면과 라우트, 공유 파일 규칙, 합치는 순서.
+- `design/SPEC.md`: 피봇 전 목업 14개의 명세. `design/` 화면을 고칠 때만 기준이다.
 - `design/tokens.css`: 색, 글꼴, 간격, 반경, 그림자와 공통 클래스(`.frame`, `.statusbar`, `.appbar`, `.content`, `.card`, `.btn-*`, `.chip-*`, `.row`, `.input`, `.tabbar`, `.sheet`). 화면에서 색이나 크기를 하드코딩하지 말고 토큰을 쓴다.
+
+## 명령
+
+```bash
+npm install                                   # 루트, 워크스페이스 전체
+npm run dev -w apps/server                    # http://localhost:8787
+npm run db:push -w apps/server                # DATABASE_URL을 넣은 뒤
+npm run db:seed -w apps/server                # DATABASE_URL을 넣은 뒤
+cd apps/mobile && npx expo start              # 앱
+npm test -w packages/core                     # 원가 계산 테스트
+npm run typecheck                             # 전체 타입 검사
+```
 
 ## 화면 작성 규칙
 
