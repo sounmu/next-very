@@ -4,12 +4,17 @@ import type { Preset } from './types';
 /** 김밥 가게 demo, as of 2026-10-31. Catalog and orders are not live supplier services. */
 const ingredients: Ingredient[] = [
   { id: 'rice', name: '쌀', baseUnit: 'g', aliases: [] },
-  { id: 'gim', name: '김', baseUnit: 'ea', aliases: [] },
+  { id: 'gim', name: '김밥용 조미김', baseUnit: 'ea', aliases: [] },
   { id: 'danmuji', name: '단무지', baseUnit: 'g', aliases: [] },
+  { id: 'burdock', name: '우엉조림', baseUnit: 'g', aliases: [] },
   { id: 'carrot', name: '당근', baseUnit: 'g', aliases: [] },
-  { id: 'ham', name: '햄', baseUnit: 'g', aliases: [] },
+  { id: 'ham', name: '김밥햄', baseUnit: 'g', aliases: [] },
+  { id: 'crab-stick', name: '맛살', baseUnit: 'g', aliases: [] },
   { id: 'egg', name: '계란', baseUnit: 'g', aliases: [] },
+  { id: 'cucumber', name: '오이', baseUnit: 'g', aliases: [] },
   { id: 'spinach', name: '시금치', baseUnit: 'g', aliases: [] },
+  { id: 'sesame-oil', name: '참기름', baseUnit: 'mL', aliases: [] },
+  { id: 'sesame', name: '볶음참깨', baseUnit: 'g', aliases: [] },
   { id: 'tuna', name: '참치', baseUnit: 'g', aliases: [] },
   { id: 'mayonnaise', name: '마요네즈', baseUnit: 'g', aliases: [] },
   { id: 'perilla-leaf', name: '깻잎', baseUnit: 'ea', aliases: [] },
@@ -24,6 +29,8 @@ const suppliers: Supplier[] = [
   { id: 'daesung', name: '대성유통', createdAt: '2026-10-01T00:00:00.000Z' },
   { id: 'sea-food', name: '바다식품', createdAt: '2026-10-01T00:00:00.000Z' },
   { id: 'gim-maeul', name: '김마을', createdAt: '2026-10-01T00:00:00.000Z' },
+  { id: 'greenfarm', name: '그린팜', createdAt: '2026-10-01T00:00:00.000Z' },
+  { id: 'hanbit', name: '한빛식자재', createdAt: '2026-10-01T00:00:00.000Z' },
 ];
 
 const purchases: Purchase[] = [
@@ -84,8 +91,33 @@ const menus: Menu[] = [
 const products: SupplierProduct[] = [
   { id: 'product-tuna-daesung', supplierId: 'daesung', ingredientId: 'tuna', name: '참치 1kg', packSize: 1, packUnit: 'kg', price: 20000, shippingFee: 0, minOrderAmount: 0, isDemo: true },
   { id: 'product-tuna-sea-food', supplierId: 'sea-food', ingredientId: 'tuna', name: '참치 1kg', packSize: 1, packUnit: 'kg', price: 15000, shippingFee: 3000, minOrderAmount: 30000, isDemo: true },
-  { id: 'product-gim-daesung', supplierId: 'daesung', ingredientId: 'gim', name: '김밥김 100장', packSize: 100, packUnit: 'ea', price: 15000, shippingFee: 0, minOrderAmount: 0, isDemo: true },
-  { id: 'product-gim-gim-maeul', supplierId: 'gim-maeul', ingredientId: 'gim', name: '김밥김 100장', packSize: 100, packUnit: 'ea', price: 13000, shippingFee: 3000, minOrderAmount: 30000, isDemo: true },
+  { id: 'product-gim-daesung', supplierId: 'daesung', ingredientId: 'gim', name: '김밥용 조미김 100장', packSize: 100, packUnit: 'ea', price: 15000, shippingFee: 0, minOrderAmount: 0, isDemo: true },
+  { id: 'product-gim-gim-maeul', supplierId: 'gim-maeul', ingredientId: 'gim', name: '김밥용 조미김 100장', packSize: 100, packUnit: 'ea', price: 13000, shippingFee: 3000, minOrderAmount: 30000, isDemo: true },
+  // Prices below follow October 2026 online retail prices for food-service packs.
+  { id: 'product-rice-daesung', supplierId: 'daesung', ingredientId: 'rice', name: '쌀 20kg', origin: '국산', packSize: 20, packUnit: 'kg', price: 64000, shippingFee: 0, minOrderAmount: 0, isDemo: true },
+  { id: 'product-rice-hanbit', supplierId: 'hanbit', ingredientId: 'rice', name: '쌀 20kg', origin: '국산', packSize: 20, packUnit: 'kg', price: 59500, shippingFee: 4000, minOrderAmount: 50000, isDemo: true },
+  { id: 'product-danmuji-daesung', supplierId: 'daesung', ingredientId: 'danmuji', name: '김밥 단무지 3kg', packSize: 3, packUnit: 'kg', price: 9500, shippingFee: 0, minOrderAmount: 0, isDemo: true },
+  { id: 'product-danmuji-hanbit', supplierId: 'hanbit', ingredientId: 'danmuji', name: '김밥 단무지 3kg', packSize: 3, packUnit: 'kg', price: 8200, shippingFee: 3000, minOrderAmount: 0, isDemo: true },
+  { id: 'product-burdock-daesung', supplierId: 'daesung', ingredientId: 'burdock', name: '김밥용 우엉조림 1kg', packSize: 1, packUnit: 'kg', price: 11500, shippingFee: 0, minOrderAmount: 0, isDemo: true },
+  { id: 'product-burdock-hanbit', supplierId: 'hanbit', ingredientId: 'burdock', name: '김밥용 우엉조림 1kg', packSize: 1, packUnit: 'kg', price: 7400, shippingFee: 3000, minOrderAmount: 0, isDemo: true },
+  { id: 'product-carrot-daesung', supplierId: 'daesung', ingredientId: 'carrot', name: '당근 10kg', origin: '국산', packSize: 10, packUnit: 'kg', price: 32000, shippingFee: 0, minOrderAmount: 0, isDemo: true },
+  { id: 'product-carrot-greenfarm', supplierId: 'greenfarm', ingredientId: 'carrot', name: '흙당근 10kg', origin: '국산', packSize: 10, packUnit: 'kg', price: 26000, shippingFee: 4000, minOrderAmount: 20000, isDemo: true },
+  { id: 'product-ham-daesung', supplierId: 'daesung', ingredientId: 'ham', name: '김밥햄 1kg', packSize: 1, packUnit: 'kg', price: 12500, shippingFee: 0, minOrderAmount: 0, isDemo: true },
+  { id: 'product-ham-hanbit', supplierId: 'hanbit', ingredientId: 'ham', name: '김밥햄 1kg', packSize: 1, packUnit: 'kg', price: 10900, shippingFee: 3000, minOrderAmount: 0, isDemo: true },
+  { id: 'product-crab-stick-daesung', supplierId: 'daesung', ingredientId: 'crab-stick', name: '김밥 맛살 1kg', packSize: 1, packUnit: 'kg', price: 8900, shippingFee: 0, minOrderAmount: 0, isDemo: true },
+  { id: 'product-crab-stick-sea-food', supplierId: 'sea-food', ingredientId: 'crab-stick', name: '김밥 맛살 1kg', packSize: 1, packUnit: 'kg', price: 7900, shippingFee: 3000, minOrderAmount: 30000, isDemo: true },
+  { id: 'product-egg-daesung', supplierId: 'daesung', ingredientId: 'egg', name: '계란 30구 (1.8kg)', origin: '국산', packSize: 1.8, packUnit: 'kg', price: 8900, shippingFee: 0, minOrderAmount: 0, isDemo: true },
+  { id: 'product-egg-greenfarm', supplierId: 'greenfarm', ingredientId: 'egg', name: '특란 30구 (1.8kg)', origin: '국산', packSize: 1.8, packUnit: 'kg', price: 7900, shippingFee: 3000, minOrderAmount: 30000, isDemo: true },
+  { id: 'product-cucumber-daesung', supplierId: 'daesung', ingredientId: 'cucumber', name: '오이 5kg', origin: '국산', packSize: 5, packUnit: 'kg', price: 19000, shippingFee: 0, minOrderAmount: 0, isDemo: true },
+  { id: 'product-cucumber-greenfarm', supplierId: 'greenfarm', ingredientId: 'cucumber', name: '다다기오이 5kg', origin: '국산', packSize: 5, packUnit: 'kg', price: 15000, shippingFee: 4000, minOrderAmount: 20000, isDemo: true },
+  { id: 'product-spinach-daesung', supplierId: 'daesung', ingredientId: 'spinach', name: '시금치 1kg', origin: '국산', packSize: 1, packUnit: 'kg', price: 8500, shippingFee: 0, minOrderAmount: 0, isDemo: true },
+  { id: 'product-spinach-greenfarm', supplierId: 'greenfarm', ingredientId: 'spinach', name: '포항초 시금치 1kg', origin: '국산', packSize: 1, packUnit: 'kg', price: 6900, shippingFee: 3000, minOrderAmount: 0, isDemo: true },
+  { id: 'product-sesame-oil-daesung', supplierId: 'daesung', ingredientId: 'sesame-oil', name: '참기름 1.8L', origin: '참깨 수입', packSize: 1.8, packUnit: 'L', price: 16000, shippingFee: 0, minOrderAmount: 0, isDemo: true },
+  { id: 'product-sesame-oil-hanbit', supplierId: 'hanbit', ingredientId: 'sesame-oil', name: '참기름 1.8L', origin: '참깨 수입', packSize: 1.8, packUnit: 'L', price: 14300, shippingFee: 3000, minOrderAmount: 0, isDemo: true },
+  { id: 'product-sesame-daesung', supplierId: 'daesung', ingredientId: 'sesame', name: '볶음참깨 1kg', origin: '수입', packSize: 1, packUnit: 'kg', price: 13500, shippingFee: 0, minOrderAmount: 0, isDemo: true },
+  { id: 'product-sesame-hanbit', supplierId: 'hanbit', ingredientId: 'sesame', name: '볶음참깨 1kg', origin: '수입', packSize: 1, packUnit: 'kg', price: 11900, shippingFee: 3000, minOrderAmount: 0, isDemo: true },
+  { id: 'product-mayonnaise-daesung', supplierId: 'daesung', ingredientId: 'mayonnaise', name: '마요네즈 3.2kg', packSize: 3.2, packUnit: 'kg', price: 14500, shippingFee: 0, minOrderAmount: 0, isDemo: true },
+  { id: 'product-mayonnaise-hanbit', supplierId: 'hanbit', ingredientId: 'mayonnaise', name: '마요네즈 3.2kg', packSize: 3.2, packUnit: 'kg', price: 12900, shippingFee: 3000, minOrderAmount: 0, isDemo: true },
 ];
 
 /** Fixed OCR result used when GEMINI_API_KEY is missing. Not inserted into the DB: unsaved invoices are not kept. */
