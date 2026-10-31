@@ -1,6 +1,6 @@
 # 기술 스택과 구조 (v2)
 
-전제: 해커톤 심사 시연용이다. 스토어 배포와 비밀번호는 없다. 로그인은 이메일만 받고, 데이터는 가게별로 나뉜다. 앱은 발표자 휴대폰(Expo Go)에서 돌리고, 서버는 Vercel에 올린다. 데이터와 원가 계산, OCR은 서버가 맡는다. 화면과 숫자는 `docs/PRODUCT.md`, 시각 규칙은 `DESIGN.md`가 기준이다.
+전제: 해커톤 심사 시연용이다. 스토어 배포와 비밀번호는 없다. 로그인은 이메일만 받고, 데이터는 가게별로 나뉜다. 서버와 웹앱은 Vercel에 올리고, 심사위원은 각자 휴대폰 브라우저로 연다. Expo Go도 같은 서버로 쓸 수 있다. 데이터와 원가 계산, OCR은 서버가 맡는다. 화면과 숫자는 `docs/PRODUCT.md`, 시각 규칙은 `DESIGN.md`가 기준이다.
 
 ## 스택
 
@@ -358,9 +358,12 @@ npm run typecheck                             # 워크스페이스 전체 타입
 
 ## 배포와 시연 환경
 
-- 서버: Vercel에 `apps/server`를 올리고 환경변수에 `DATABASE_URL`과 OCR 키(`LABLUP_API_KEY` 또는 `GEMINI_API_KEY`)를 넣는다. URL은 앱의 `EXPO_PUBLIC_API_URL`에 넣는다.
+서버와 웹앱을 같은 레포의 Vercel 프로젝트 두 개로 올린다. 심사위원은 각자 휴대폰 브라우저에서 웹앱 주소로 연다.
+
+- 서버: Root Directory `apps/server`. `apps/server/vercel.json`이 함수 리전을 서울(`icn1`)로 둔다(Supabase가 ap-northeast-2, 트랜잭션 풀러 6543). 환경변수는 `DATABASE_URL`과 OCR 키(`LABLUP_API_KEY` 또는 `GEMINI_API_KEY`). CORS는 `proxy.ts`가 모든 출처를 허용한다.
+- 웹앱: Root Directory `apps/mobile`. `apps/mobile/vercel.json`이 `npx expo export -p web`으로 `dist`를 만들고 모든 경로를 `index.html`로 돌린다(`app.json`의 `web.output: "single"`, 서버 라우트 없음). 환경변수 `EXPO_PUBLIC_API_URL`에 서버 주소를 넣는다. 빌드할 때 코드에 박히므로 바꾸면 다시 배포한다. 빠지면 `http://localhost:8787`로 요청한다.
 - 예비: 노트북에서 `next build` 뒤 `next start -p 8787`, `cloudflared tunnel --url http://localhost:8787`로 받은 HTTPS 주소를 쓴다. DB는 같은 Supabase다.
-- 앱: `npx expo start --tunnel`로 발표자 휴대폰에서 연다. 휴대폰 핫스팟을 예비 네트워크로 둔다.
+- Expo Go: 웹앱과 별개로 `npx expo start --tunnel`로 발표자 휴대폰에서 열 수 있다. `apps/mobile/.env.local`의 `EXPO_PUBLIC_API_URL`을 서버 주소로 둔다. 휴대폰 핫스팟을 예비 네트워크로 둔다.
 - 시연마다 `/api/demo/reset`으로 초기화한다.
 
 ## 참고
