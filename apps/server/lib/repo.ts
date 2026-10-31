@@ -44,57 +44,48 @@ export interface State {
 // Optional fields in core are absent, never null.
 const opt = <T>(v: T | null): T | undefined => v ?? undefined;
 
-// Reads run one at a time: postgres.js 4 hangs when several queries queue on one connection behind the Supabase transaction pooler.
+// Reads run in parallel, each on its own connection: db/client.ts turns off pipelining, which hangs behind the Supabase transaction pooler.
 // Every read filters by store; aliases and recipe lines are scoped through their parent.
 export async function loadState(db: Db, storeId: string): Promise<State> {
-  const ingredientRows = await db
-    .select()
-    .from(ingredients)
-    .where(eq(ingredients.storeId, storeId))
-    .orderBy(asc(ingredients.id));
-  const aliasRows = await db
-    .select({ alias: ingredientAliases.alias, ingredientId: ingredientAliases.ingredientId })
-    .from(ingredientAliases)
-    .innerJoin(ingredients, eq(ingredients.id, ingredientAliases.ingredientId))
-    .where(eq(ingredients.storeId, storeId))
-    .orderBy(asc(ingredientAliases.alias));
-  const supplierRows = await db
-    .select()
-    .from(suppliers)
-    .where(eq(suppliers.storeId, storeId))
-    .orderBy(asc(suppliers.createdAt), asc(suppliers.id));
-  const purchaseRows = await db
-    .select()
-    .from(purchases)
-    .where(eq(purchases.storeId, storeId))
-    .orderBy(asc(purchases.date), asc(purchases.id));
-  const menuRows = await db.select().from(menus).where(eq(menus.storeId, storeId)).orderBy(asc(menus.id));
-  const lineRows = await db
-    .select({
-      menuId: recipeLines.menuId,
-      ingredientId: recipeLines.ingredientId,
-      amount: recipeLines.amount,
-      unit: recipeLines.unit,
-    })
-    .from(recipeLines)
-    .innerJoin(menus, eq(menus.id, recipeLines.menuId))
-    .where(eq(menus.storeId, storeId))
-    .orderBy(asc(recipeLines.menuId), asc(recipeLines.position));
-  const productRows = await db
-    .select()
-    .from(supplierProducts)
-    .where(eq(supplierProducts.storeId, storeId))
-    .orderBy(asc(supplierProducts.ingredientId), asc(supplierProducts.id));
-  const quoteRows = await db
-    .select()
-    .from(quotes)
-    .where(eq(quotes.storeId, storeId))
-    .orderBy(asc(quotes.date), asc(quotes.id));
-  const saleRows = await db
-    .select()
-    .from(sales)
-    .where(eq(sales.storeId, storeId))
-    .orderBy(asc(sales.date), asc(sales.id));
+  const [ingredientRows, aliasRows, supplierRows, purchaseRows, menuRows, lineRows, productRows, quoteRows, saleRows] =
+    await Promise.all([
+      db.select().from(ingredients).where(eq(ingredients.storeId, storeId)).orderBy(asc(ingredients.id)),
+      db
+        .select({ alias: ingredientAliases.alias, ingredientId: ingredientAliases.ingredientId })
+        .from(ingredientAliases)
+        .innerJoin(ingredients, eq(ingredients.id, ingredientAliases.ingredientId))
+        .where(eq(ingredients.storeId, storeId))
+        .orderBy(asc(ingredientAliases.alias)),
+      db
+        .select()
+        .from(suppliers)
+        .where(eq(suppliers.storeId, storeId))
+        .orderBy(asc(suppliers.createdAt), asc(suppliers.id)),
+      db
+        .select()
+        .from(purchases)
+        .where(eq(purchases.storeId, storeId))
+        .orderBy(asc(purchases.date), asc(purchases.id)),
+      db.select().from(menus).where(eq(menus.storeId, storeId)).orderBy(asc(menus.id)),
+      db
+        .select({
+          menuId: recipeLines.menuId,
+          ingredientId: recipeLines.ingredientId,
+          amount: recipeLines.amount,
+          unit: recipeLines.unit,
+        })
+        .from(recipeLines)
+        .innerJoin(menus, eq(menus.id, recipeLines.menuId))
+        .where(eq(menus.storeId, storeId))
+        .orderBy(asc(recipeLines.menuId), asc(recipeLines.position)),
+      db
+        .select()
+        .from(supplierProducts)
+        .where(eq(supplierProducts.storeId, storeId))
+        .orderBy(asc(supplierProducts.ingredientId), asc(supplierProducts.id)),
+      db.select().from(quotes).where(eq(quotes.storeId, storeId)).orderBy(asc(quotes.date), asc(quotes.id)),
+      db.select().from(sales).where(eq(sales.storeId, storeId)).orderBy(asc(sales.date), asc(sales.id)),
+    ]);
 
   return {
     ingredients: ingredientRows.map((r) => ({
@@ -197,18 +188,16 @@ export async function loadCart(db: Db, storeId: string): Promise<CartItem[]> {
 
 /** Newest first, lines in the order they were placed. */
 export async function loadOrders(db: Db, storeId: string): Promise<Order[]> {
-  const orderRows = await db
-    .select()
-    .from(orders)
-    .where(eq(orders.storeId, storeId))
-    .orderBy(asc(orders.createdAt), asc(orders.id));
-  const lineRows = await db
-    .select({ line: orderLines })
-    .from(orderLines)
-    .innerJoin(orders, eq(orders.id, orderLines.orderId))
-    .where(eq(orders.storeId, storeId))
-    .orderBy(asc(orderLines.orderId), asc(orderLines.position))
-    .then((rows) => rows.map((r) => r.line));
+  const [orderRows, lineRows] = await Promise.all([
+    db.select().from(orders).where(eq(orders.storeId, storeId)).orderBy(asc(orders.createdAt), asc(orders.id)),
+    db
+      .select({ line: orderLines })
+      .from(orderLines)
+      .innerJoin(orders, eq(orders.id, orderLines.orderId))
+      .where(eq(orders.storeId, storeId))
+      .orderBy(asc(orderLines.orderId), asc(orderLines.position))
+      .then((rows) => rows.map((r) => r.line)),
+  ]);
   return orderRows.reverse().map((o) => ({
     id: o.id,
     status: o.status,

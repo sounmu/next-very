@@ -15,7 +15,9 @@ export function getDb(): Db {
     throw new Error("DATABASE_URL is not set. Put the Supabase Postgres connection string in apps/server/.env.local or the environment.");
   }
   // prepare: false is required by the Supabase transaction pooler.
-  const sql = postgres(url, { prepare: false });
+  // max_pipeline: 1 because the pooler never answers queries that postgres.js 4 pipelines on a busy connection;
+  // a query waits for a free connection or opens a new one (up to max) instead.
+  const sql = postgres(url, { prepare: false, max_pipeline: 1 });
   cache.marginlogSql = sql;
   cache.marginlogDb = drizzle({ client: sql, schema });
   return cache.marginlogDb;

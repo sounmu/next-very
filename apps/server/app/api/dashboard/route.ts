@@ -19,9 +19,7 @@ export async function GET(request: Request) {
   const db = getDb();
   const auth = await requireStore(db, request);
   if (auth instanceof Response) return auth;
-  // Queries run one after another: see the pooler note in lib/repo.ts.
-  const state = await loadState(db, auth.storeId);
-  const invoices = await loadInvoices(db, auth.storeId);
+  const [state, invoices] = await Promise.all([loadState(db, auth.storeId), loadInvoices(db, auth.storeId)]);
   const used = consumption(state.menus, state.ingredients, state.sales);
   const sold = soldByMenu(state.sales);
 

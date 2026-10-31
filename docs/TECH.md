@@ -68,7 +68,7 @@ apps/
       orders/[id]/receive/route.ts     POST
       demo/reset/route.ts              POST
     db/schema.ts                       Drizzle 스키마 (전체 테이블)
-    db/client.ts                       postgres.js 연결, prepare: false
+    db/client.ts                       postgres.js 연결, prepare: false, max_pipeline: 1
     lib/repo.ts                        DB 읽기/쓰기. 라우트는 이것만 부른다
     lib/seed.ts                        core 시드를 DB에 넣는다 (/api/demo/reset과 스크립트가 같이 씀)
     lib/ocr/                           extract.ts(모델 호출), validate.ts(숫자 검사), aliases.ts(별칭 연결)
@@ -246,6 +246,8 @@ interface Invoice { id: string; hasImage: boolean; supplierId?: string; date?: s
 | `order_lines` | id, order_id, product_id, supplier_id, ingredient_id, name, pack_size, pack_unit, quantity, price, amount | |
 
 Supabase transaction pooler(6543)를 쓰므로 postgres.js에 `prepare: false`를 준다. `db/client.ts`에서 한 번만 설정한다.
+
+같은 이유로 `max_pipeline: 1`도 준다. postgres.js 4는 기본값으로 바쁜 연결 하나에 쿼리를 겹쳐 보내는데(파이프라이닝), 풀러는 그렇게 겹친 쿼리에 끝내 답하지 않는다. 그래서 요청이 동시에 오면 일부가 멈췄다. 파이프라이닝을 끄면 쿼리는 빈 연결을 기다리거나 새 연결을 연다(최대 10개). 그래서 `lib/repo.ts`의 `loadState`는 9개 읽기를 `Promise.all`로 동시에 보낸다.
 
 ## API
 
