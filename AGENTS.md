@@ -10,7 +10,7 @@
 - 앱 화면에는 "데모" 라벨을 붙이지 않는다(2026-10-31 결정). 실제와 데모의 구분은 `docs/PRODUCT.md`와 `docs/TECH.md`에만 적는다. OCR은 서버에 `GEMINI_API_KEY`가 있을 때만 실제이고, 없으면 고정 추출 결과(`isDemo: true`)를 쓴다. 공급처 상품, 가격, 주문은 데모다. 결제, 외부 주문 전송, 수수료 정산은 없다. 입고 확인은 실제 구매 기록을 만들고, 같은 주문 줄은 두 번 기록되지 않는다.
 - 서버는 Next.js 16 App Router(API 라우트만) + Drizzle ORM + postgres.js + Supabase Postgres다. 앱은 Expo SDK 58 + Expo Router다. 공통 코드는 `packages/core`다.
 - 비밀값(`DATABASE_URL`, `GEMINI_API_KEY`)은 `apps/server/.env.local`에만 둔다. 출력하거나 복사하거나 커밋하지 않는다.
-- 로그인·회원가입은 1단계(화면만)다. 인증 서버와 가게별 서버 데이터는 없다. 앱에 들어가는 길은 "시연 가게 둘러보기" 하나다. "데모로 시작하기"(이 기기의 새 가게)와 그 코드(온보딩, 새 가게 홈, 데모 재고)는 2026-11-01에 없앴다. 기록 추가 같은 기본 기능이 빠지는 진입을 두지 않는다. 자세한 내용은 `docs/PRODUCT.md` "로그인"과 `docs/TECH.md` "로그인 세션".
+- 로그인은 이메일만 받는다(비밀번호 없음, 2026-11-01 결정). 이메일을 아는 사람은 누구나 그 가게에 들어갈 수 있다는 시연용 한계가 있다. 데이터는 가게별로 서버에서 나뉘고, 모든 가게 라우트는 `requireStore`로 시작한다. 새 가게는 파스타·피자·김밥 프리셋 중 하나를 복사해 시작한다. 시연 가게 한끼식당은 demo@marginlog.kr의 가게다. 자세한 내용은 `docs/PRODUCT.md` "로그인과 가게"와 `docs/TECH.md` "로그인과 가게별 데이터".
 - 작업 방식은 `docs/TEAM.md`에 있다. 코드를 바꾸면 이 문서와 `docs/TECH.md`를 같이 갱신한다.
 
 ## 단일 출처
@@ -28,7 +28,7 @@ npm install                                   # 루트, 워크스페이스 전�
 npm run dev -w apps/server                    # http://localhost:8787
 npm run db:push -w apps/server                # 스키마를 DB에 반영 (.env.local의 DATABASE_URL)
 npm run db:seed -w apps/server                # 시드 넣기
-npm run db:reset -w apps/server               # 모든 테이블을 비우고 시드로 되돌림
+npm run db:reset -w apps/server               # 모든 테이블을 비우고 한끼식당만 다시 만듦 (모든 계정과 새 가게가 지워짐)
 cd apps/mobile && npx expo start              # 앱
 npm test -w packages/core                     # core 테스트 (단위, 원가, 비교, 주문)
 npm run typecheck                             # 전체 타입 검사

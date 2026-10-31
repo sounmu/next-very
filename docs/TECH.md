@@ -1,6 +1,6 @@
 # 기술 스택과 구조 (v2)
 
-전제: 해커톤 심사 시연용이다. 스토어 배포, 로그인, 여러 매장은 없다. 앱은 발표자 휴대폰(Expo Go)에서 돌리고, 서버는 Vercel에 올린다. 데이터와 원가 계산, OCR은 서버가 맡는다. 화면과 숫자는 `docs/PRODUCT.md`, 시각 규칙은 `DESIGN.md`가 기준이다.
+전제: 해커톤 심사 시연용이다. 스토어 배포와 비밀번호는 없다. 로그인은 이메일만 받고, 데이터는 가게별로 나뉜다. 앱은 발표자 휴대폰(Expo Go)에서 돌리고, 서버는 Vercel에 올린다. 데이터와 원가 계산, OCR은 서버가 맡는다. 화면과 숫자는 `docs/PRODUCT.md`, 시각 규칙은 `DESIGN.md`가 기준이다.
 
 ## 스택
 
@@ -227,6 +227,9 @@ interface Invoice { id: string; hasImage: boolean; supplierId?: string; date?: s
 
 | 테이블 | 주요 열 | 비고 |
 |---|---|---|
+| `users` | id, email (UNIQUE, 소문자), created_at | 이메일만으로 만든 계정 |
+| `sessions` | token (PK), user_id, created_at | 로그인 토큰. 로그아웃하면 지운다 |
+| `stores` | id, user_id (UNIQUE), name, preset (hankki, pasta, pizza, gimbap), kind (showcase, new), created_at | 계정 하나에 가게 하나 |
 | `ingredients` | id, name, spec, base_unit, market_code | |
 | `ingredient_aliases` | alias (PK), ingredient_id | 한 별칭은 한 재료에만 |
 | `suppliers` | id, name, phone, memo, created_at | |
@@ -251,6 +254,10 @@ Supabase transaction pooler(6543)를 쓰므로 postgres.js에 `prepare: false`�
 | 메서드 | 경로 | 화면 | 내용 |
 |---|---|---|---|
 | GET | `/api/health` | 없음 | 서버와 DB 연결, OCR 모드(실제/데모) 확인 |
+| POST | `/api/auth/login` | 로그인 | `{ email }`. 처음이면 계정을 만들고 `{ token, user, store|null }`. 형식이 틀리면 400 |
+| POST | `/api/auth/logout` | 마이페이지 | Bearer 토큰의 세션을 지운다. 토큰이 없어도 200 |
+| GET | `/api/me` | 앱 시작 | `{ user, store|null }`. 토큰이 없거나 틀리면 401 |
+| POST | `/api/store` | 가게 만들기 | `{ name, preset: pasta|pizza|gimbap }`. 가게와 프리셋 복사를 한 트랜잭션으로. 이미 가게가 있으면 그 가게를 200으로 돌려주고 아무것도 복사하지 않는다(`stores.user_id` UNIQUE + ON CONFLICT DO NOTHING). 새로 만들면 201 |
 | GET | `/api/dashboard` | 홈 | 이번 달 구매 합계, 메뉴별 MenuCost와 원가율과 누적 판매 수(`sold`), costAlert, priceChanges, 다음 정산 날짜(`nextSettleDate`), 확인 대기 명세서 수 |
 | POST | `/api/settle` | 홈 | 본문 없음. `settleDay()`로 하루 판매를 만들어 `sales`에 저장하고 `{ date, nextDate, lines: [{ menuId, menuName, target, quantity }], changes }`를 돌려준다. 같은 날짜가 이미 있으면 409 |
 | GET | `/api/purchases` | 기록 | 구매 기록 목록. `?q=`(재료 이름, 별칭, 구매처)와 `?ingredientId=` 검색 |
@@ -289,12 +296,17 @@ Supabase transaction pooler(6543)를 쓰므로 postgres.js에 `prepare: false`�
 
 Vercel 함수의 요청 본문 한도는 4.5MB다. 앱이 사진을 긴 변 1600px로 줄여 올리므로 한도 안에 들어간다.
 
-## 로그인 세션 (앱, 1단계)
+## 로그인과 가게별 데이터 (3단계)
 
-- `apps/mobile/src/session/SessionProvider.tsx`: 세션 상태 `mode`(`null` 로그아웃, `'showcase'` 한끼식당 서버 데이터) 하나만 있다. AsyncStorage 키 `marginlog.session.v1`에 `{ mode }` JSON으로 저장하고 읽을 때 Zod로 검사한다. 없앤 새 가게 모드(`'demo'`)가 남아 있으면 `'showcase'`로 읽고, 옛 새 가게 데이터의 다른 키는 무시한다. 쓰기는 하나씩 줄 세우고 저장이 성공한 뒤에만 화면 상태를 바꾼다. 비밀번호와 토큰은 저장하지 않는다.
-- `apps/mobile/src/session/auth.ts`: `signInWithEmail`, `signUpWithEmail`은 지금 "서버에 연결되지 않았어요"를 돌려준다. 2단계에서는 이 두 함수만 실제 인증으로 바꾼다.
-- `app/_layout.tsx`: `Stack.Protected`로 로그인·회원가입(로그아웃)과 탭·마이페이지·시연 상세 화면(로그인)을 나눈다. 주소를 직접 입력해도 다른 쪽 화면은 열리지 않는다.
-- 2단계 할 일: 인증 서버, `stores` 테이블, 메뉴·재료·구매·판매·장바구니·주문에 가게 열.
+- 이메일만으로 로그인한다. 비밀번호가 없어서 이메일을 아는 사람은 누구나 그 가게에 들어갈 수 있다. 시연용 한계이고 실제 서비스 전에 인증을 붙여야 한다.
+- `apps/server/lib/auth.ts`: `createSession(db, email)`이 사용자를 이메일로 찾거나 만들고 세션 토큰(UUID 두 개)을 만든다. `getAuth(db, request)`는 `Authorization: Bearer <token>`을 읽는다. `requireStore(db, request)`는 `{ userId, storeId, store }`를 돌려주거나 401("로그인이 필요해요"), 409("가게 설정이 필요해요") 응답을 돌려준다.
+- 가게 데이터를 읽거나 쓰는 모든 라우트는 `requireStore`로 시작하고 `auth.storeId`만 쓴다. `ingredients, suppliers, quotes, invoices, supplier_products, cart_items, orders, purchases, menus, sales, market_index`에 `store_id`(NOT NULL, stores cascade)가 있다. `ingredient_aliases, recipe_lines, order_lines, invoice_images`는 부모를 통해 나뉜다. `[id]` 라우트는 다른 가게의 행이면 404를 돌려준다.
+- `apps/server/lib/repo.ts`의 `loadState, loadInvoices, loadCart, loadOrders, loadMarketIndex`는 모두 `storeId`를 받는다.
+- 프리셋 복사(`apps/server/lib/seed.ts` `insertPreset`): 프리셋의 모든 id와 그 id를 가리키는 연결 값 앞에 `<storeId>-`를 붙여 넣는다. 한끼식당(`store-hankki`, demo@marginlog.kr)은 접두사 없이 넣어 지금 id 그대로다. `resetShowcaseStore`는 한끼식당만, `/api/demo/reset`은 호출한 가게만 처음 프리셋으로 되돌린다. `db:reset`은 모든 사용자와 가게를 지우고 한끼식당만 다시 만든다.
+- 정산 판매 id는 `sale-<storeId>-<날짜>-<메뉴>`라 가게끼리 겹치지 않는다.
+- CORS(`apps/server/proxy.ts`)는 `content-type, authorization` 헤더를 허용한다. 빠지면 웹 앱의 인증 요청이 브라우저에서 막힌다.
+- 앱(`apps/mobile/src/session/SessionProvider.tsx`): 토큰만 AsyncStorage `marginlog.auth.v1`에 둔다. 시작할 때 `/api/me`로 세션을 확인하고, 401이면 토큰을 지운다. `src/api/client.ts`가 모든 요청에 Bearer 토큰을 붙인다. 로그인, 로그아웃, 가게 만들기 때마다 React Query 캐시를 비워 다른 계정의 데이터가 남지 않게 한다. `app/_layout.tsx`의 `Stack.Protected`가 로그아웃(로그인 화면만), 가게 없음(가게 만들기만), 가게 있음(탭과 상세 화면)을 나눈다.
+
 
 ## OCR
 
@@ -305,7 +317,7 @@ Vercel 함수의 요청 본문 한도는 4.5MB다. 앱이 사진을 긴 변 1600
 3. **서버 숫자 검사(`validate.ts`).** 다음이면 그 품목을 `confidence: 'low'`로 두고 `note`에 이유를 적는다: `quantity x unitPrice != amount`, packSize나 packUnit이 null, 포장 용량이 범위 밖(기본 단위로 1 미만 또는 50,000 초과), 품목 합 != total. 앱은 low 칸을 "확인 필요"로 표시하고 고치기 전에는 저장 버튼을 막는다.
 4. **별칭 연결(`aliases.ts`).** `ingredient_aliases`와 재료 이름으로 rawName을 먼저 맞춘다. 공백과 괄호를 지운 뒤 비교한다. 맞지 않으면 후보만 제안하고 자동 연결하지 않는다.
 5. **사진 줄이기.** 앱과 서버 모두 긴 변 1600px, JPEG 품질 0.8로 줄인다. 서버는 sharp로 회전 정보를 반영한다.
-6. **데모 추출 결과.** 시드의 대기 명세서와 같은 값(한우리축산, 2026-10-31, 돼지고기 앞다리 10kg x 1, 90,000원)이다.
+6. **데모 추출 결과.** 가게 프리셋의 `demoInvoice`다. 한끼식당은 한우리축산, 2026-10-31, 돼지고기 앞다리 10kg x 1, 90,000원이고, 다른 프리셋은 `docs/PRODUCT.md` "새 가게 프리셋" 표의 고정 인식 결과다.
 
 ## 연결 상태
 
