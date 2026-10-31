@@ -21,10 +21,48 @@ const bytea = customType<{ data: Buffer; driverData: Buffer }>({
 const UNITS = ["g", "kg", "mL", "L", "ea"] as const;
 const BASE_UNITS = ["g", "mL", "ea"] as const;
 
+const PRESETS = ["hankki", "pasta", "pizza", "gimbap"] as const;
+
 // Money is integer won. Pack sizes and amounts are floats in their written unit; unit prices are derived, never stored.
+
+/** Email-only login: email is stored lowercase and trimmed. */
+export const users = pgTable("users", {
+  id: text("id").primaryKey(),
+  email: text("email").notNull().unique(),
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+});
+
+/** The token is sent as "Authorization: Bearer <token>". */
+export const sessions = pgTable("sessions", {
+  token: text("token").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+});
+
+/** One store per user. A store starts as a copy of one preset; deleting it removes all its rows. */
+export const stores = pgTable("stores", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .unique()
+    .references(() => users.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  preset: text("preset", { enum: PRESETS }).notNull(),
+  kind: text("kind", { enum: ["showcase", "new"] }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+});
+
+// Every store table carries store_id; child tables are scoped through their parent.
+const storeId = () =>
+  text("store_id")
+    .notNull()
+    .references(() => stores.id, { onDelete: "cascade" });
 
 export const ingredients = pgTable("ingredients", {
   id: text("id").primaryKey(),
+  storeId: storeId(),
   name: text("name").notNull(),
   spec: text("spec"),
   baseUnit: text("base_unit", { enum: BASE_UNITS }).notNull(),
@@ -32,15 +70,20 @@ export const ingredients = pgTable("ingredients", {
 });
 
 /** Other spellings of one ingredient, e.g. receipt names. An alias points to exactly one ingredient. */
-export const ingredientAliases = pgTable("ingredient_aliases", {
-  alias: text("alias").primaryKey(),
-  ingredientId: text("ingredient_id")
-    .notNull()
-    .references(() => ingredients.id, { onDelete: "cascade" }),
-});
+export const ingredientAliases = pgTable(
+  "ingredient_aliases",
+  {
+    alias: text("alias").notNull(),
+    ingredientId: text("ingredient_id")
+      .notNull()
+      .references(() => ingredients.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.ingredientId, t.alias] })],
+);
 
 export const suppliers = pgTable("suppliers", {
   id: text("id").primaryKey(),
+  storeId: storeId(),
   name: text("name").notNull(),
   phone: text("phone"),
   memo: text("memo"),
@@ -49,6 +92,7 @@ export const suppliers = pgTable("suppliers", {
 
 export const quotes = pgTable("quotes", {
   id: text("id").primaryKey(),
+  storeId: storeId(),
   supplierId: text("supplier_id")
     .notNull()
     .references(() => suppliers.id),
@@ -65,6 +109,7 @@ export const quotes = pgTable("quotes", {
 /** An image is optional; the demo invoice has none. */
 export const invoices = pgTable("invoices", {
   id: text("id").primaryKey(),
+  storeId: storeId(),
   supplierId: text("supplier_id").references(() => suppliers.id),
   date: date("date", { mode: "string" }),
   status: text("status", { enum: ["extracted", "confirmed"] }).notNull(),
@@ -85,6 +130,7 @@ export const invoiceImages = pgTable("invoice_images", {
 /** Demo supplier catalog. */
 export const supplierProducts = pgTable("supplier_products", {
   id: text("id").primaryKey(),
+  storeId: storeId(),
   supplierId: text("supplier_id")
     .notNull()
     .references(() => suppliers.id),
@@ -105,16 +151,22 @@ export const supplierProducts = pgTable("supplier_products", {
 });
 
 /** One cart per store; quantity is packs. */
-export const cartItems = pgTable("cart_items", {
-  productId: text("product_id")
-    .primaryKey()
-    .references(() => supplierProducts.id, { onDelete: "cascade" }),
-  quantity: integer("quantity").notNull(),
-});
+export const cartItems = pgTable(
+  "cart_items",
+  {
+    storeId: storeId(),
+    productId: text("product_id")
+      .notNull()
+      .references(() => supplierProducts.id, { onDelete: "cascade" }),
+    quantity: integer("quantity").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.storeId, t.productId] })],
+);
 
 /** Demo orders: no payment, nothing is sent to a supplier. */
 export const orders = pgTable("orders", {
   id: text("id").primaryKey(),
+  storeId: storeId(),
   status: text("status", { enum: ["placed", "received"] }).notNull(),
   isDemo: boolean("is_demo").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
@@ -152,6 +204,7 @@ export const purchases = pgTable(
   "purchases",
   {
     id: text("id").primaryKey(),
+    storeId: storeId(),
     ingredientId: text("ingredient_id")
       .notNull()
       .references(() => ingredients.id),
@@ -175,6 +228,7 @@ export const purchases = pgTable(
 
 export const menus = pgTable("menus", {
   id: text("id").primaryKey(),
+  storeId: storeId(),
   name: text("name").notNull(),
   price: integer("price").notNull(),
   servingLabel: text("serving_label").notNull().default("1인분"),
@@ -200,6 +254,7 @@ export const recipeLines = pgTable(
 /** Servings sold per menu per day. Stock and FIFO cost are derived from purchases minus these, never stored. */
 export const sales = pgTable("sales", {
   id: text("id").primaryKey(),
+  storeId: storeId(),
   menuId: text("menu_id")
     .notNull()
     .references(() => menus.id, { onDelete: "cascade" }),
@@ -211,6 +266,7 @@ export const sales = pgTable("sales", {
 export const marketIndex = pgTable(
   "market_index",
   {
+    storeId: storeId(),
     ingredientId: text("ingredient_id")
       .notNull()
       .references(() => ingredients.id),

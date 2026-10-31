@@ -21,6 +21,9 @@ const TABLES = [
   "ingredient_aliases",
   "suppliers",
   "ingredients",
+  "stores",
+  "sessions",
+  "users",
 ];
 
 function pushSchema(): Promise<void> {

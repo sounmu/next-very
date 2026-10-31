@@ -9,6 +9,10 @@ export type ErrorResponse = z.infer<typeof ErrorResponseSchema>;
  * Error responses of every endpoint are ErrorResponseSchema.
  */
 export const API_PATHS = {
+  authLogin: 'POST /api/auth/login',
+  authLogout: 'POST /api/auth/logout',
+  me: 'GET /api/me',
+  storeCreate: 'POST /api/store',
   dashboard: 'GET /api/dashboard',
   purchases: 'GET /api/purchases?q=&ingredientId=&month=',
   purchaseCreate: 'POST /api/purchases',
