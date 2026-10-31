@@ -1,11 +1,12 @@
+import { PRESETS } from '@marginlog/core/src/presets';
 import { useState } from 'react';
 import { StyleSheet, Text } from 'react-native';
 
 import { useSession } from '@/session/SessionProvider';
-import { Button, Card, Header, Notice, Row, Screen, SectionHeader, Sheet, colors, typography } from '@/ui';
+import { Button, Card, Header, Row, Screen, SectionHeader, Sheet, colors, typography } from '@/ui';
 
 export default function MyPageScreen() {
-  const { leave } = useSession();
+  const { logout, store, user } = useSession();
   const [confirming, setConfirming] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [leaveError, setLeaveError] = useState(false);
@@ -15,7 +16,7 @@ export default function MyPageScreen() {
     setLeaving(true);
     setLeaveError(false);
     try {
-      await leave();
+      await logout();
     } catch (error) {
       console.warn('[mypage] could not log out', error);
       setLeaveError(true);
@@ -29,15 +30,14 @@ export default function MyPageScreen() {
 
       <SectionHeader title="가게" />
       <Card>
-        <Row label="가게 이름" value="한끼식당" />
-        <Row label="구분" value="시연 가게" divider={false} />
+        <Row label="가게 이름" value={store?.name ?? ''} />
+        <Row label="시작 데이터" value={store ? PRESETS[store.preset].label : ''} divider={false} />
       </Card>
 
       <SectionHeader title="계정" />
       <Card>
-        <Row label="로그인" value="시연 가게 둘러보는 중" divider={false} />
+        <Row label="계정" value={user?.email ?? ''} divider={false} />
       </Card>
-      <Notice>계정 로그인은 아직 서버에 연결되지 않았어요.</Notice>
 
       <Button variant="secondary" label="로그아웃" onPress={() => setConfirming(true)} />
 

@@ -1,6 +1,7 @@
 import type { DashboardResponse } from '@marginlog/core/src/api/dashboard';
 import type { SettleResponse } from '@marginlog/core/src/api/settle';
 import { formatDateKo } from '@marginlog/core';
+import { PRESETS } from '@marginlog/core/src/presets';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -28,6 +29,7 @@ import {
   typography,
 } from '@/ui';
 import { MyPageButton } from '@/session/MyPageButton';
+import { useSession } from '@/session/SessionProvider';
 
 type ResetState = 'idle' | 'confirm' | 'done';
 
@@ -43,6 +45,7 @@ export default function HomeScreen() {
   const compare = useCompareList();
   const orders = useOrders();
   const reset = useResetDemo();
+  const { store, welcomePending, dismissWelcome } = useSession();
   const [resetState, setResetState] = useState<ResetState>('idle');
 
   const confirmReset = () =>
@@ -50,7 +53,7 @@ export default function HomeScreen() {
 
   const header = (
     <Header
-      title="우리 가게 원가"
+      title={store?.name ?? '우리 가게 원가'}
       onTitleLongPress={() => setResetState('confirm')}
       right={<MyPageButton />}
     />
@@ -72,6 +75,14 @@ export default function HomeScreen() {
         <PillAction label={resetState === 'done' ? '닫기' : '취소'} onPress={() => setResetState('idle')} />
       </View>
     );
+
+  const welcome =
+    welcomePending && store ? (
+      <Card variant="emphasis" style={styles.refreshFail}>
+        <Text style={[typography.secondary, styles.flex]}>{`가게를 만들었어요 · ${PRESETS[store.preset].label} 시연 데이터로 시작해요`}</Text>
+        <PillAction label="닫기" onPress={dismissWelcome} inverse />
+      </Card>
+    ) : null;
 
   if (dashboard.isPending) {
     return (
@@ -130,6 +141,7 @@ export default function HomeScreen() {
     <Screen>
       {header}
       {resetPill}
+      {welcome}
       {dashboard.isError ? (
         <Card variant="emphasis" style={styles.refreshFail}>
           <Text style={[typography.secondary, styles.flex]}>최신 원가로 갱신하지 못했어요</Text>

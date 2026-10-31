@@ -1,23 +1,37 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createContext, use, useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  LoginResponseSchema,
+  MeResponseSchema,
+  SHOWCASE_EMAIL,
+  StoreCreateResponseSchema,
+  type MeResponse,
+  type StoreCreate,
+  type StoreInfo,
+} from '@marginlog/core/src/api/auth';
+import { useQueryClient } from '@tanstack/react-query';
+import { createContext, use, useEffect, useState, type ReactNode } from 'react';
 import { z } from 'zod';
 
-/** Device storage only (phase 1). Holds no password or token. */
-const STORAGE_KEY = 'marginlog.session.v1';
+import { ApiError, apiFetch, setAuthToken, setOnUnauthorized } from '@/api/client';
 
-/**
- * `mode` is null when signed out and 'showcase' inside 한끼식당. 'demo' is the removed
- * "데모로 시작하기" new store; a device that still has it opens the showcase.
- * Other keys left by the old new-store data are ignored.
- */
-const SavedSchema = z.object({ mode: z.enum(['demo', 'showcase']).nullable() });
-type Mode = 'showcase' | null;
+/** Only the server session token is kept on the device. */
+const TOKEN_KEY = 'marginlog.auth.v1';
+
+export type SessionUser = MeResponse['user'];
 
 export type Session = {
-  mode: Mode;
   loading: boolean;
-  startShowcase: () => Promise<void>;
-  leave: () => Promise<void>;
+  /** null when signed out. */
+  user: SessionUser | null;
+  /** null when signed in but no store is set up yet. */
+  store: StoreInfo | null;
+  /** True right after createStore until the home card is dismissed. Memory only. */
+  welcomePending: boolean;
+  login: (email: string) => Promise<void>;
+  loginShowcase: () => Promise<void>;
+  logout: () => Promise<void>;
+  createStore: (input: StoreCreate) => Promise<void>;
+  dismissWelcome: () => void;
 };
 
 const SessionContext = createContext<Session | null>(null);
@@ -28,49 +42,103 @@ export function useSession(): Session {
   return value;
 }
 
-async function load(): Promise<Mode> {
-  const raw = await AsyncStorage.getItem(STORAGE_KEY);
-  if (raw === null) return null;
-  const parsed = SavedSchema.safeParse(JSON.parse(raw));
-  if (!parsed.success) {
-    console.warn('[session] saved data did not match the schema; starting fresh', parsed.error.issues);
-    return null;
-  }
-  return parsed.data.mode === null ? null : 'showcase';
-}
-
 export function SessionProvider({ children }: { children: ReactNode }) {
-  const [mode, setMode] = useState<Mode>(null);
+  const queryClient = useQueryClient();
   const [loading, setLoading] = useState(true);
-  const queue = useRef<Promise<unknown>>(Promise.resolve());
+  const [user, setUser] = useState<SessionUser | null>(null);
+  const [store, setStore] = useState<StoreInfo | null>(null);
+  const [welcomePending, setWelcomePending] = useState(false);
+
+  async function clearSession() {
+    setAuthToken(null);
+    setUser(null);
+    setStore(null);
+    setWelcomePending(false);
+    queryClient.clear();
+    try {
+      await AsyncStorage.removeItem(TOKEN_KEY);
+    } catch (error) {
+      console.warn('[session] could not remove the saved token', error);
+    }
+  }
 
   useEffect(() => {
-    load()
-      .catch((error: unknown) => {
-        console.warn('[session] could not read device storage; starting fresh', error);
-        return null;
-      })
-      .then((saved) => {
-        setMode(saved);
-        setLoading(false);
-      });
+    // Any 401 means the token is no longer valid on the server.
+    setOnUnauthorized(() => {
+      void clearSession();
+    });
+
+    (async () => {
+      let token: string | null = null;
+      try {
+        token = await AsyncStorage.getItem(TOKEN_KEY);
+      } catch (error) {
+        console.warn('[session] could not read device storage; starting signed out', error);
+      }
+      if (token === null) return;
+      setAuthToken(token);
+      try {
+        const me = await apiFetch('/api/me', undefined, MeResponseSchema);
+        setUser(me.user);
+        setStore(me.store);
+      } catch (error) {
+        // A 401 already cleared the session through the handler. Other failures (server down)
+        // also start signed out, but keep the token so the next start can try again.
+        console.warn('[session] could not restore the session', error);
+        if (!(error instanceof ApiError && error.status === 401)) {
+          setAuthToken(null);
+        }
+      }
+    })().finally(() => setLoading(false));
+
+    return () => setOnUnauthorized(null);
   }, []);
 
-  /** Writes run one after another; state changes only after the write succeeds. */
-  function save(next: Mode): Promise<void> {
-    const run = queue.current.then(async () => {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ mode: next }));
-      setMode(next);
-    });
-    queue.current = run.catch(() => undefined);
-    return run;
+  async function login(email: string) {
+    const result = await apiFetch(
+      '/api/auth/login',
+      { method: 'POST', body: JSON.stringify({ email }) },
+      LoginResponseSchema,
+    );
+    await AsyncStorage.setItem(TOKEN_KEY, result.token);
+    setAuthToken(result.token);
+    queryClient.clear();
+    setWelcomePending(false);
+    setUser(result.user);
+    setStore(result.store);
+  }
+
+  async function logout() {
+    try {
+      await apiFetch('/api/auth/logout', { method: 'POST' }, z.unknown());
+    } catch (error) {
+      // A token the server no longer knows is already logged out.
+      if (!(error instanceof ApiError && error.status === 401)) throw error;
+    }
+    await clearSession();
+  }
+
+  async function createStore(input: StoreCreate) {
+    const result = await apiFetch(
+      '/api/store',
+      { method: 'POST', body: JSON.stringify(input) },
+      StoreCreateResponseSchema,
+    );
+    queryClient.clear();
+    setWelcomePending(true);
+    setStore(result.store);
   }
 
   const value: Session = {
-    mode,
     loading,
-    startShowcase: () => save('showcase'),
-    leave: () => save(null),
+    user,
+    store,
+    welcomePending,
+    login,
+    loginShowcase: () => login(SHOWCASE_EMAIL),
+    logout,
+    createStore,
+    dismissWelcome: () => setWelcomePending(false),
   };
 
   return <SessionContext value={value}>{children}</SessionContext>;

@@ -33,6 +33,19 @@ export class ApiError extends Error {
   }
 }
 
+/** Bearer token of the server session; SessionProvider sets it. */
+let authToken: string | null = null;
+let onUnauthorized: (() => void) | null = null;
+
+export function setAuthToken(token: string | null) {
+  authToken = token;
+}
+
+/** Called on any 401 before apiFetch throws, so the session can sign out. */
+export function setOnUnauthorized(handler: (() => void) | null) {
+  onUnauthorized = handler;
+}
+
 function messageFrom(body: unknown, status: number): string {
   if (body && typeof body === 'object') {
     const record = body as Record<string, unknown>;
@@ -56,6 +69,7 @@ export async function apiFetch<T>(path: string, init: RequestInit | undefined, s
   if (typeof init?.body === 'string' && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
+  if (authToken !== null) headers.set('Authorization', `Bearer ${authToken}`);
 
   let response: Response;
   try {
@@ -75,6 +89,7 @@ export async function apiFetch<T>(path: string, init: RequestInit | undefined, s
   }
 
   if (!response.ok) {
+    if (response.status === 401) onUnauthorized?.();
     throw new ApiError('http', response.status, path, body, messageFrom(body, response.status));
   }
 

@@ -26,24 +26,24 @@ export default function RootLayout() {
   );
 }
 
-/**
- * Signed out: login and signup. Signed in: the showcase (한끼식당 server data) tabs and detail screens.
- * Typing an address directly does not open the other side.
- */
 function RootNavigator() {
-  const { loading, mode } = useSession();
+  const { loading, user, store } = useSession();
   if (loading) return null;
 
-  const signedOut = mode === null;
-  const entry = signedOut ? '/login' : '/';
+  const signedOut = user === null;
+  const needsStore = !signedOut && store === null;
+  const hasStore = !signedOut && store !== null;
+  const entry = signedOut ? '/login' : needsStore ? '/onboarding' : '/';
 
   return (
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
       <Stack.Protected guard={signedOut} redirectTo={entry}>
         <Stack.Screen name="login" />
-        <Stack.Screen name="signup" />
       </Stack.Protected>
-      <Stack.Protected guard={!signedOut} redirectTo={entry}>
+      <Stack.Protected guard={needsStore} redirectTo={entry}>
+        <Stack.Screen name="onboarding" />
+      </Stack.Protected>
+      <Stack.Protected guard={hasStore} redirectTo={entry}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="mypage" />
         <Stack.Screen name="compare/[ingredientId]" />
