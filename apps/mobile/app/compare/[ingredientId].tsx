@@ -66,10 +66,10 @@ function SupplierOfferCard({ offer, baseUnit, recommended, added, adding, onAdd 
       {offer.comparable ? (
         <View>
           <Row label="상품가" hint={`${offer.packs}팩 × ${formatWon(product.price)}`} value={formatWon(offer.itemsTotal)} />
-          <Row label="배송비" value={formatWon(offer.shippingFee)} />
           <Row
-            label="최소 주문"
-            value={product.minOrderAmount > 0 ? formatWon(product.minOrderAmount) : '없음'}
+            label="배송비"
+            hint={product.minOrderAmount > 0 ? `최소 주문 ${formatWon(product.minOrderAmount)}` : undefined}
+            value={formatWon(offer.shippingFee)}
           />
           <Row label="배송비 포함 합계" bold value={formatWon(offer.total)} divider={false} />
           {offer.unitPricePerBase !== null ? (
@@ -198,7 +198,7 @@ export default function CompareDetailScreen() {
       </Card>
 
       {recommended ? (
-        <Card variant="highlight">
+        <Card variant="highlight" style={styles.hero}>
           <Text style={styles.highlightLabel}>
             추천 · {recommended.supplierName}
           </Text>
@@ -206,6 +206,16 @@ export default function CompareDetailScreen() {
           <Text style={styles.highlightCaption}>
             배송비 포함 합계 · {formatQty(neededBaseQty, base)} 기준
           </Text>
+          {addedIds.has(recommended.product.id) ? (
+            <Button label="장바구니 보기" onPress={() => router.push('/shop/cart')} style={styles.heroButton} />
+          ) : (
+            <Button
+              label={`장바구니 담기 · ${recommended.packs}팩`}
+              loading={pendingId === recommended.product.id}
+              onPress={() => addToCart(recommended)}
+              style={styles.heroButton}
+            />
+          )}
         </Card>
       ) : null}
 
@@ -248,6 +258,8 @@ const styles = StyleSheet.create({
   added: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.s3, minHeight: control.secondaryButtonHeight },
   addedText: { ...typography.bodyStrong, color: colors.primary },
   link: { ...typography.secondary, color: colors.text, textDecorationLine: 'underline' },
+  hero: { gap: space.s1 },
+  heroButton: { marginTop: space.s3 },
   highlightLabel: { ...typography.cardTitle, color: colors.text },
   highlightCaption: { ...typography.caption, color: colors.text },
   error: { ...typography.caption, color: colors.loss },

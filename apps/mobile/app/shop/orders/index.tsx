@@ -7,7 +7,7 @@ import { Card, Chip, Header, ListRow, Screen, StateView, space, typography } fro
 
 export default function OrdersScreen() {
   const orders = useOrders();
-  const header = <Header backLabel="장보기" title="주문 내역" />;
+  const header = <Header backLabel="구매" title="주문 내역" />;
 
   if (orders.isPending) {
     return (
@@ -35,8 +35,8 @@ export default function OrdersScreen() {
         <StateView
           kind="empty"
           title="아직 주문이 없어요"
-          message="장보기에서 상품을 담고 주문을 넣어 보세요"
-          actionLabel="장보기로 가기"
+          message="구매 탭에서 상품을 담고 주문을 넣어 보세요"
+          actionLabel="상품 보러 가기"
           onAction={() => router.navigate('/shop')}
         />
       ) : (

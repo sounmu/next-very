@@ -1,16 +1,17 @@
 import type { DashboardResponse } from '@marginlog/core/src/api/dashboard';
-import { formatDateKo, formatUnitPrice } from '@marginlog/core';
+import { formatDateKo } from '@marginlog/core';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ApiError, useResetDemo } from '@/api';
+import { useCompareList } from '@/api/compare';
 import { useDashboard } from '@/api/home';
 import { useIngredients } from '@/api/ingredients';
+import { useOrders } from '@/api/shop';
 import {
   Button,
   Card,
-  Chip,
   Header,
   ListRow,
   Notice,
@@ -19,7 +20,6 @@ import {
   StateView,
   colors,
   control,
-  deltaColor,
   formatWon,
   opacity,
   radius,
@@ -29,17 +29,17 @@ import {
 
 type ResetState = 'idle' | 'confirm' | 'done';
 
+type Task = { key: string; title: string; subtitle?: string; onPress: () => void };
+
 function errorText(error: unknown) {
   return error instanceof ApiError ? error.message : '잠시 후 다시 시도해 주세요';
-}
-
-function percent(rate: number) {
-  return `${(Math.abs(rate) * 100).toFixed(1)}%`;
 }
 
 export default function HomeScreen() {
   const dashboard = useDashboard();
   const ingredients = useIngredients();
+  const compare = useCompareList();
+  const orders = useOrders();
   const reset = useResetDemo();
   const [resetState, setResetState] = useState<ResetState>('idle');
 
@@ -96,6 +96,41 @@ export default function HomeScreen() {
   for (const item of ingredients.data?.ingredients ?? []) names.set(item.id, item.name);
   for (const change of data.priceChanges) names.set(change.ingredientId, change.name);
 
+  const tasks: Task[] = [];
+  const review = data.needsReview;
+  const firstReview = review[0];
+  if (firstReview) {
+    tasks.push({
+      key: 'review',
+      title: `확인할 명세서 ${review.length}건`,
+      subtitle: [firstReview.supplier, firstReview.date ? formatDateKo(firstReview.date) : null].filter(Boolean).join(' · '),
+      onPress: () =>
+        review.length === 1
+          ? router.push({ pathname: '/records/[invoiceId]/review', params: { invoiceId: firstReview.invoiceId } })
+          : router.navigate('/records'),
+    });
+  }
+  const cause = data.alert?.ingredientIds[0];
+  if (cause) {
+    const offer = compare.data?.items.find((item) => item.ingredient.id === cause)?.recommended;
+    tasks.push({
+      key: 'compare',
+      title: `${names.get(cause) ?? '재료'} 더 싸게 사기`,
+      subtitle: offer ? `${offer.supplierName} · 배송비 포함 ${formatWon(offer.total)}` : '공급처 가격 비교',
+      onPress: () => router.push({ pathname: '/compare/[ingredientId]', params: { ingredientId: cause } }),
+    });
+  }
+  const placed = (orders.data?.orders ?? []).filter((order) => order.status === 'placed');
+  const firstPlaced = placed[0];
+  if (firstPlaced) {
+    tasks.push({
+      key: 'receive',
+      title: `입고 확인 ${placed.length}건`,
+      subtitle: `${firstPlaced.lines[0]?.name ?? '주문'} · ${formatWon(firstPlaced.total)}`,
+      onPress: () => router.push({ pathname: '/shop/orders/[id]', params: { id: firstPlaced.id } }),
+    });
+  }
+
   return (
     <Screen>
       {header}
@@ -107,42 +142,48 @@ export default function HomeScreen() {
         </Card>
       ) : null}
 
-      <HighlightCard data={data} names={names} />
-      <SpendCard data={data} />
+      {data.purchaseCount === 0 ? (
+        <Card>
+          <StateView
+            kind="empty"
+            title="첫 구매 기록을 등록해 주세요"
+            message="영수증을 찍으면 재료 단가와 메뉴 원가가 계산돼요"
+            actionLabel="영수증 등록"
+            onAction={() => router.push('/records/upload')}
+          />
+        </Card>
+      ) : (
+        <HeroCard data={data} names={names} />
+      )}
 
-      <SectionHeader title="확인이 필요한 기록" />
-      <Card>
-        {data.needsReview.length === 0 ? (
-          <Notice>확인을 기다리는 기록이 없어요</Notice>
-        ) : (
-          data.needsReview.map((item, index) => (
-            <ListRow
-              key={item.invoiceId}
-              title={item.supplier || '구매처 확인 필요'}
-              subtitle={`${item.date ? formatDateKo(item.date) : '날짜 확인 필요'} · 품목 ${item.itemCount}개`}
-              value={
-                <View style={styles.chips}>
-                  {item.issueCount > 0 ? <Chip label={`확인 필요 ${item.issueCount}건`} tone="warning" /> : <Chip label="확인 대기" tone="info" />}
-                </View>
-              }
-              chevron
-              divider={index < data.needsReview.length - 1}
-              onPress={() => router.push({ pathname: '/records/[invoiceId]/review', params: { invoiceId: item.invoiceId } })}
-            />
-          ))
-        )}
-      </Card>
+      {tasks.length > 0 ? (
+        <>
+          <SectionHeader title="지금 할 일" />
+          <Card style={styles.list}>
+            {tasks.map((task, index) => (
+              <ListRow
+                key={task.key}
+                title={task.title}
+                subtitle={task.subtitle}
+                chevron
+                divider={index < tasks.length - 1}
+                onPress={task.onPress}
+              />
+            ))}
+          </Card>
+        </>
+      ) : null}
 
-      <SectionHeader title="메뉴별 원가율" actionLabel="전체 보기" onAction={() => router.push('/menus')} />
-      <Card>
+      <SectionHeader title="메뉴별 식재료비" actionLabel="전체 보기" onAction={() => router.push('/menus')} />
+      <Card style={styles.list}>
         {data.menus.length === 0 ? (
-          <Notice>레시피를 등록하면 메뉴별 식재료비를 볼 수 있어요</Notice>
+          <Notice style={styles.listNotice}>레시피를 등록하면 메뉴별 식재료비를 볼 수 있어요</Notice>
         ) : (
           data.menus.map(({ menu, cost }, index) => (
             <ListRow
               key={menu.id}
               title={menu.name}
-              subtitle={`${menu.servingLabel} · 판매가 ${formatWon(menu.price)}`}
+              subtitle={`판매가 ${formatWon(menu.price)}`}
               value={
                 cost.total === null ? (
                   <Text style={styles.warnText}>{cost.missing.length === 0 && cost.unitIssues.length > 0 ? '단위 확인 필요' : '단가 등록 필요'}</Text>
@@ -150,7 +191,7 @@ export default function HomeScreen() {
                   formatWon(cost.total)
                 )
               }
-              valueCaption={cost.ratio === null ? `부분 합계 ${formatWon(cost.partialTotal)}` : `원가율 ${Math.round(cost.ratio * 100)}%`}
+              valueCaption={cost.ratio === null ? undefined : `원가율 ${Math.round(cost.ratio * 100)}%`}
               chevron
               divider={index < data.menus.length - 1}
               onPress={() => router.push({ pathname: '/menus/[id]', params: { id: menu.id } })}
@@ -159,94 +200,46 @@ export default function HomeScreen() {
         )}
       </Card>
 
-      <SectionHeader title="가격 변동" actionLabel="전체 보기" onAction={() => router.push('/ingredients')} />
-      <Card>
-        {data.priceChanges.length === 0 ? (
-          <Notice>이전 구매와 비교할 단가가 아직 없어요</Notice>
-        ) : (
-          data.priceChanges.map((change, index) => (
-            <ListRow
-              key={change.ingredientId}
-              title={change.name}
-              subtitle={`${formatDateKo(change.currentDate)} 구매\n이전 ${formatUnitPrice(change.previousUnitPrice, change.baseUnit)}`}
-              value={
-                <View style={styles.side}>
-                  <Text style={typography.rowAmount}>{formatUnitPrice(change.currentUnitPrice, change.baseUnit)}</Text>
-                  <Text style={[typography.caption, styles.delta, { color: deltaColor(change.changeRate) }]}>
-                    {change.changeRate === 0 ? '이전과 같음' : `이전보다 ${percent(change.changeRate)} ${change.changeRate > 0 ? '높음' : '낮음'}`}
-                  </Text>
-                </View>
-              }
-              chevron
-              divider={index < data.priceChanges.length - 1}
-              onPress={() => router.push({ pathname: '/ingredients/[id]', params: { id: change.ingredientId } })}
-            />
-          ))
-        )}
+      <Card style={styles.list}>
+        <ListRow title="재료별 구매 단가" chevron onPress={() => router.push('/ingredients')} />
       </Card>
 
-      <Button variant="secondary" label="식재료 관리" onPress={() => router.push('/ingredients')} />
-      <Notice align="center">식재료비만 계산해요 · 인건비, 임대료, 배송비 제외</Notice>
+      <Notice align="center">최근 확인된 구매 단가 기준 · 배송비 제외</Notice>
     </Screen>
   );
 }
 
-function HighlightCard({ data, names }: { data: DashboardResponse; names: Map<string, string> }) {
+function HeroCard({ data, names }: { data: DashboardResponse; names: Map<string, string> }) {
   const alert = data.alert;
-  if (alert) {
-    const causes = alert.ingredientIds.map((id) => names.get(id) ?? id);
-    return (
-      <Card variant="highlight" style={styles.highlight}>
-        <Text style={styles.highlightLabel}>원가 상승 알림</Text>
-        <Text style={typography.heading}>
-          {alert.menuName} 메뉴당 식재료비가 {formatWon(alert.delta)} 올랐어요
-        </Text>
-        {causes.length > 0 ? <Text style={styles.highlightBody}>원인: {causes.join(', ')} 구매 단가가 올랐어요</Text> : null}
-        <Button label="원인 보기" onPress={() => router.push({ pathname: '/menus/[id]', params: { id: alert.menuId } })} style={styles.highlightButton} />
-      </Card>
-    );
-  }
+  const item = (alert && data.menus.find(({ menu }) => menu.id === alert.menuId)) || data.menus[0];
+  if (!item) return null;
+  const { menu, cost } = item;
+  const rising = alert?.menuId === menu.id ? alert : null;
+  const causes = rising ? rising.ingredientIds.map((id) => names.get(id) ?? id) : [];
 
-  const first = data.menus[0];
-  if (!first) return null;
-  const { menu, cost } = first;
   return (
-    <Card variant="highlight" style={styles.highlight}>
-      <Text style={styles.highlightLabel}>
+    <Card variant="highlight" style={styles.hero}>
+      <Text style={styles.heroLabel}>
         {menu.name} · {menu.servingLabel} 식재료비
       </Text>
       {cost.total === null ? (
-        <>
-          <Text style={typography.heading}>일부 재료 단가 미등록</Text>
-          <Text style={styles.highlightBody}>계산된 부분 합계 {formatWon(cost.partialTotal)}</Text>
-        </>
+        <Text style={typography.heading}>일부 재료 단가 미등록</Text>
       ) : (
         <Text style={typography.display}>{formatWon(cost.total)}</Text>
       )}
-      <Text style={styles.highlightBody}>
-        최근 구매 단가 기준{cost.ratio === null ? '' : ` · 원가율 ${Math.round(cost.ratio * 100)}%`}
+      <Text style={styles.heroBody}>
+        {cost.total === null
+          ? `계산된 부분 합계 ${formatWon(cost.partialTotal)}`
+          : [cost.ratio === null ? null : `원가율 ${Math.round(cost.ratio * 100)}%`, rising ? `이전보다 ${formatWon(rising.delta)} 높음` : null]
+              .filter(Boolean)
+              .join(' · ') || '최근 구매 단가 기준'}
       </Text>
-      <Button label="원가 보기" onPress={() => router.push({ pathname: '/menus/[id]', params: { id: menu.id } })} style={styles.highlightButton} />
-    </Card>
-  );
-}
-
-function SpendCard({ data }: { data: DashboardResponse }) {
-  const month = Number(data.month.split('-')[1]);
-  if (data.purchaseCount === 0) {
-    return (
-      <Card>
-        <StateView kind="empty" title="첫 구매 기록을 등록해 주세요" message="영수증을 찍으면 재료 단가와 메뉴 원가가 계산돼요" actionLabel="영수증 등록" onAction={() => router.push('/records/upload')} />
-      </Card>
-    );
-  }
-  return (
-    <Card title={`${month}월 구매액`}>
-      <View style={styles.spendRow}>
-        <Text style={typography.amountLg}>{formatWon(data.monthSpend)}</Text>
-        <Text style={typography.secondary}>확인된 구매 {data.purchaseCount}건</Text>
-      </View>
-      {data.monthIsCurrent ? null : <Notice style={styles.spendCaption}>이번 달 구매가 없어 최근 구매가 있는 달을 보여 줘요</Notice>}
+      {causes.length > 0 ? <Text style={styles.heroCaption}>{causes.join(', ')} 구매 단가가 올랐어요</Text> : null}
+      <Button
+        label="원가 보기"
+        onPress={() => router.push({ pathname: '/menus/[id]', params: { id: menu.id } })}
+        style={styles.heroButton}
+      />
     </Card>
   );
 }
@@ -284,14 +277,12 @@ const styles = StyleSheet.create({
   pressed: { opacity: opacity.pressed },
   disabled: { opacity: opacity.disabled },
   refreshFail: { flexDirection: 'row', alignItems: 'center', gap: space.s3, paddingVertical: space.s3 },
-  highlight: { gap: space.s2 },
-  highlightLabel: { ...typography.secondary, color: colors.text },
-  highlightBody: { ...typography.body, color: colors.text },
-  highlightButton: { marginTop: space.s2 },
-  spendRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: space.s3, flexWrap: 'wrap' },
-  spendCaption: { marginTop: space.s2 },
-  chips: { flexDirection: 'row', gap: space.s1, flexWrap: 'wrap', justifyContent: 'flex-end' },
+  hero: { gap: space.s1 },
+  heroLabel: { ...typography.secondary, color: colors.text },
+  heroBody: { ...typography.body, color: colors.text },
+  heroCaption: { ...typography.caption, color: colors.text },
+  heroButton: { marginTop: space.s4 },
+  list: { paddingVertical: 0 },
+  listNotice: { paddingVertical: space.s5 },
   warnText: { ...typography.secondary, color: colors.warn, fontWeight: '600' },
-  side: { alignItems: 'flex-end', gap: space.s1 },
-  delta: { fontWeight: '600' },
 });

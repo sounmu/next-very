@@ -5,12 +5,13 @@ import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
-import { useCart, useProducts, useSetCartItem, useShopIngredients } from '@/api/shop';
+import { useCart, useOrders, useProducts, useSetCartItem, useShopIngredients } from '@/api/shop';
 import {
   Button,
   Card,
   Chip,
   Header,
+  ListRow,
   Notice,
   Screen,
   StateView,
@@ -38,6 +39,7 @@ export default function ShopScreen() {
   const products = useProducts();
   const ingredients = useShopIngredients();
   const cart = useCart();
+  const orders = useOrders();
   const [query, setQuery] = useState('');
   const [ingredientId, setIngredientId] = useState<string>(ALL);
 
@@ -72,18 +74,33 @@ export default function ShopScreen() {
 
   const cartQuantity = new Map((cart.data?.items ?? []).map((item) => [item.productId, item.quantity]));
   const cartCount = cart.data?.items.length ?? 0;
+  const placed = (orders.data?.orders ?? []).filter((order) => order.status === 'placed');
+  const firstPlaced = placed[0];
 
   return (
     <Screen>
       <Header
-        title="장보기"
+        title="구매"
         right={
           <View style={styles.headerActions}>
-            <HeaderAction label={`장바구니 (${cartCount})`} onPress={() => router.push('/shop/cart')} />
-            <HeaderAction label="주문 내역" onPress={() => router.push('/shop/orders')} />
+            <HeaderAction label={`장바구니 ${cartCount}`} onPress={() => router.push('/shop/cart')} />
           </View>
         }
       />
+      {firstPlaced ? (
+        <Card style={styles.list}>
+          <ListRow
+            title={`입고 확인 ${placed.length}건`}
+            subtitle="받은 상품을 확인하면 구매 기록에 반영돼요"
+            chevron
+            onPress={() =>
+              placed.length === 1
+                ? router.push({ pathname: '/shop/orders/[id]', params: { id: firstPlaced.id } })
+                : router.push('/shop/orders')
+            }
+          />
+        </Card>
+      ) : null}
       <TextField label="상품 검색" value={query} onChangeText={setQuery} placeholder="상품명, 재료, 공급처" />
 
       {products.isPending ? (
@@ -112,7 +129,6 @@ export default function ShopScreen() {
               <FilterChip key={id} label={nameOf(id)} selected={ingredientId === id} onPress={() => setIngredientId(id)} />
             ))}
           </ScrollView>
-          <Notice>정렬: 재료별, 배송비 포함 1포장 합계 낮은 순</Notice>
           {visible.length === 0 ? (
             <StateView
               kind="empty"
@@ -138,6 +154,10 @@ export default function ShopScreen() {
               );
             })
           )}
+          <Card style={styles.list}>
+            <ListRow title="주문 내역" chevron onPress={() => router.push('/shop/orders')} />
+          </Card>
+          <Notice align="center">재료별, 배송비 포함 1포장 합계 낮은 순</Notice>
         </>
       )}
     </Screen>
@@ -210,20 +230,20 @@ function ProductCard({ product, substitute, inCart }: { product: ShopProduct; su
       <Text style={typography.secondary}>{product.supplierName}</Text>
 
       <View style={styles.priceRow}>
-        <Text style={typography.secondary}>상품가 · {pack}</Text>
+        <View style={styles.grow}>
+          <Text style={typography.caption}>
+            {pack}
+            {product.unitPricePerBase !== null ? ` · ${formatUnitPrice(product.unitPricePerBase, baseOf(product.packUnit))}` : ''}
+          </Text>
+          <Text style={typography.caption}>
+            배송비 {product.shippingFee === 0 ? '무료' : formatWon(product.shippingFee)}
+            {product.minOrderAmount > 0 ? ` · 최소 주문 ${formatWon(product.minOrderAmount)}` : ''}
+          </Text>
+        </View>
         <View style={styles.priceSide}>
           <Text style={typography.rowAmount}>{formatWon(product.price)}</Text>
-          {product.unitPricePerBase !== null ? (
-            <Text style={typography.caption}>{formatUnitPrice(product.unitPricePerBase, baseOf(product.packUnit))}</Text>
-          ) : (
-            <Chip label="단위 확인 필요" tone="warning" />
-          )}
+          {product.unitPricePerBase === null ? <Chip label="단위 확인 필요" tone="warning" /> : null}
         </View>
-      </View>
-      <View style={styles.meta}>
-        <MetaRow label="배송비" value={product.shippingFee === 0 ? '무료' : formatWon(product.shippingFee)} />
-        <MetaRow label="최소 주문" value={product.minOrderAmount === 0 ? '없음' : formatWon(product.minOrderAmount)} />
-        {product.deliveryNote ? <Text style={typography.caption}>{product.deliveryNote}</Text> : null}
       </View>
 
       <View style={styles.buyRow}>
@@ -236,15 +256,6 @@ function ProductCard({ product, substitute, inCart }: { product: ShopProduct; su
         <Text style={styles.inCart}>장바구니에 {inCart}개 담겨 있어요</Text>
       ) : null}
     </Card>
-  );
-}
-
-function MetaRow({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.metaRow}>
-      <Text style={typography.caption}>{label}</Text>
-      <Text style={[typography.caption, styles.metaValue]}>{value}</Text>
-    </View>
   );
 }
 
@@ -320,9 +331,7 @@ const styles = StyleSheet.create({
     borderTopColor: colors.line,
   },
   priceSide: { alignItems: 'flex-end', gap: space.s1 },
-  meta: { gap: space.s1 },
-  metaRow: { flexDirection: 'row', justifyContent: 'space-between', gap: space.s3 },
-  metaValue: { color: colors.text, fontWeight: '600' },
+  list: { paddingVertical: 0 },
   buyRow: { flexDirection: 'row', alignItems: 'center', gap: space.s3, marginTop: space.s2 },
   addButton: { flex: 1 },
   stepper: {

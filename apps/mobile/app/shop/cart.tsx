@@ -59,7 +59,7 @@ export default function CartScreen() {
   const cart = useCart();
   const placeOrder = usePlaceOrder();
 
-  const header = <Header backLabel="장보기" title="장바구니" />;
+  const header = <Header backLabel="구매" title="장바구니" />;
 
   if (cart.isPending) {
     return (
@@ -86,8 +86,8 @@ export default function CartScreen() {
         <StateView
           kind="empty"
           title="장바구니가 비어 있어요"
-          message="장보기에서 상품을 담아 보세요"
-          actionLabel="장보기로 가기"
+          message="구매 탭에서 상품을 담아 보세요"
+          actionLabel="상품 보러 가기"
           onAction={() => router.navigate('/shop')}
         />
       </Screen>

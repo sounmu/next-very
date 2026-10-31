@@ -63,7 +63,7 @@ export default function OrderDetailScreen() {
         received ? undefined : (
           <>
             {receiveFailed ? <Text style={styles.error}>반영하지 못했어요. {receive.error?.message}</Text> : null}
-            <Button label="입고 확인 (구매 기록에 반영)" onPress={confirm} loading={receive.isPending} disabled={receive.isPending} />
+            <Button label="입고 확인" onPress={confirm} loading={receive.isPending} disabled={receive.isPending} />
             <Notice align="center">상품 줄마다 구매 기록이 하나씩 생겨요</Notice>
           </>
         )
@@ -79,14 +79,14 @@ export default function OrderDetailScreen() {
         <Card variant="emphasis" style={styles.result}>
           <Text style={typography.bodyStrong}>구매 기록 {savedCount}건에 반영했어요</Text>
           <Text style={typography.caption}>메뉴 원가가 새 구매 단가로 다시 계산돼요</Text>
-          <Button variant="secondary" label="구매 기록 보기" onPress={() => router.navigate('/records')} />
+          <Button label="메뉴 원가 보기" onPress={() => router.navigate('/menus')} />
         </Card>
       ) : null}
       {alreadyReceived ? (
         <Card variant="emphasis" style={styles.result}>
           <Text style={typography.bodyStrong}>이미 반영된 주문이에요</Text>
           <Text style={typography.caption}>구매 기록은 새로 만들지 않았어요</Text>
-          <Button variant="secondary" label="구매 기록 보기" onPress={() => router.navigate('/records')} />
+          <Button variant="secondary" label="메뉴 원가 보기" onPress={() => router.navigate('/menus')} />
         </Card>
       ) : null}
       {received && current.receivedAt ? (

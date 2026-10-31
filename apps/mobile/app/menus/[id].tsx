@@ -123,9 +123,22 @@ export default function MenuCostDetailScreen() {
   const { menu, cost, ingredients, suppliers } = query.data;
   const editRecipe = () => router.push({ pathname: '/recipe/[menuId]', params: { menuId: menu.id } });
   const hasIssues = cost.missing.length > 0 || cost.unitIssues.length > 0;
+  const risen = cost.lines
+    .filter((line) => line.cost !== null && line.previousCost !== null && line.cost > line.previousCost)
+    .sort((a, b) => (b.cost ?? 0) - (b.previousCost ?? 0) - ((a.cost ?? 0) - (a.previousCost ?? 0)))[0];
+  const risenName = risen ? ingredients.find((item) => item.id === risen.ingredientId)?.name : undefined;
 
   return (
-    <Screen>
+    <Screen
+      actions={
+        risen ? (
+          <Button
+            label={`${risenName ?? '재료'} 더 싸게 사는 곳 보기`}
+            onPress={() => router.push({ pathname: '/compare/[ingredientId]', params: { ingredientId: risen.ingredientId } })}
+          />
+        ) : undefined
+      }
+    >
       <Header
         backLabel="메뉴 원가"
         title={menu.name}
@@ -154,7 +167,7 @@ export default function MenuCostDetailScreen() {
             </Text>
           </>
         )}
-        <Text style={styles.heroCaption}>최근 구매 단가 기준 · 인건비·임대료 제외 · 배송비 제외</Text>
+        <Text style={styles.heroCaption}>최근 구매 단가 기준 · 배송비 제외</Text>
       </Card>
 
       <SectionHeader title="재료별 식재료비" />

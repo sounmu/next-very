@@ -23,11 +23,11 @@ apps/
   mobile/                              Expo 앱
     app/
       _layout.tsx                      루트 스택, QueryClientProvider
-      (tabs)/_layout.tsx               하단 탭: 홈 / 비교 / 기록 / 장보기
+      (tabs)/_layout.tsx               하단 탭: 홈 / 기록 / 비교 / 구매
       (tabs)/index.tsx                 홈 대시보드
       (tabs)/compare.tsx               비교할 재료 목록과 추천 요약
       (tabs)/records.tsx               구매 기록: 업로드, 대기 명세서, 목록, 검색
-      (tabs)/shop.tsx                  장보기: 공급처 상품, 장바구니 진입
+      (tabs)/shop.tsx                  구매: 공급처 상품, 입고 대기, 장바구니 진입
       ingredients/index.tsx            식재료 목록
       ingredients/[id].tsx             식재료 상세: 단위, 최근 단가, 이력, 별칭
       menus/index.tsx                  메뉴 목록
@@ -271,12 +271,12 @@ Supabase transaction pooler(6543)를 쓰므로 postgres.js에 `prepare: false`�
 | POST | `/api/invoices/[id]/confirm` | 인식 결과 확인 | 고친 품목으로 Purchase(`source: 'receipt'`) 생성. 이미 confirmed면 409. 바뀐 메뉴 원가 전후 반환 |
 | GET | `/api/compare` | 비교 | 비교할 수 있는 재료 목록과 재료별 추천 요약 |
 | GET | `/api/compare/[ingredientId]` | 비교 | `?neededQty=&unit=`(기본값 최근 구매량). compareOffers 결과, 내 단가 이력, 시장 참고 지수 |
-| GET | `/api/products` | 장보기 | 공급처 상품 목록. `?ingredientId=` 필터 |
-| GET | `/api/cart` | 장보기 | 장바구니와 buildOrder 미리 계산 |
-| PUT | `/api/cart` | 장보기 | 장바구니 항목 넣기, 수량 바꾸기. quantity 0이면 뺀다 |
-| DELETE | `/api/cart` | 장보기 | 장바구니 비우기 |
+| GET | `/api/products` | 구매 | 공급처 상품 목록. `?ingredientId=` 필터 |
+| GET | `/api/cart` | 구매 | 장바구니와 buildOrder 미리 계산 |
+| PUT | `/api/cart` | 구매 | 장바구니 항목 넣기, 수량 바꾸기. quantity 0이면 뺀다 |
+| DELETE | `/api/cart` | 구매 | 장바구니 비우기 |
 | DELETE | `/api/cart/[productId]` | 장바구니 | 장바구니에서 상품 하나 빼기 |
-| GET | `/api/orders` | 장보기 | 주문 목록 |
+| GET | `/api/orders` | 구매 | 주문 목록 |
 | POST | `/api/orders` | 주문 확인 | 장바구니로 데모 주문 생성, 장바구니 비우기. 아무것도 외부로 보내지 않는다 |
 | GET | `/api/orders/[id]` | 주문 상세 | 주문과 줄 |
 | POST | `/api/orders/[id]/receive` | 주문 상세 | 입고 확인. 줄마다 Purchase(`source: 'order'`). 이미 입고한 주문은 새 기록 없이 기존 상태를 돌려준다 |

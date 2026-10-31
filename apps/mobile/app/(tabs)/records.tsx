@@ -2,7 +2,7 @@ import { formatDateKo, formatQty, formatUnitPrice, formatWon } from '@marginlog/
 import type { PurchaseListItem } from '@marginlog/core/src/api/purchases';
 import { router } from 'expo-router';
 import { useDeferredValue, useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useInvoices, usePurchases } from '@/api/records';
 import {
@@ -13,26 +13,14 @@ import {
   ListRow,
   Screen,
   SectionHeader,
-  SegmentedControl,
   StateView,
   TextField,
+  colors,
+  control,
+  opacity,
   space,
   typography,
 } from '@/ui';
-
-type MonthFilter = 'this' | 'last' | 'all';
-
-const monthOptions = [
-  { value: 'this', label: '이번 달' },
-  { value: 'last', label: '지난달' },
-  { value: 'all', label: '전체' },
-] as const;
-
-function monthKey(filter: MonthFilter, today = new Date()): string | undefined {
-  if (filter === 'all') return undefined;
-  const date = new Date(today.getFullYear(), today.getMonth() - (filter === 'last' ? 1 : 0), 1);
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-}
 
 function subtitleOf(purchase: PurchaseListItem): string {
   const base = `${formatQty(purchase.packSize, purchase.packUnit)} × ${purchase.quantity}개 · ${purchase.supplierName}`;
@@ -41,9 +29,8 @@ function subtitleOf(purchase: PurchaseListItem): string {
 
 export default function RecordsScreen() {
   const [query, setQuery] = useState('');
-  const [month, setMonth] = useState<MonthFilter>('all');
   const q = useDeferredValue(query.trim());
-  const purchases = usePurchases({ q: q || undefined, month: monthKey(month) });
+  const purchases = usePurchases({ q: q || undefined });
   const invoices = useInvoices();
 
   const pending = useMemo(
@@ -59,22 +46,23 @@ export default function RecordsScreen() {
     return [...byDate.entries()].sort(([a], [b]) => b.localeCompare(a));
   }, [purchases.data]);
 
-  const filtered = q !== '' || month !== 'all';
+  const filtered = q !== '';
 
   return (
     <Screen>
       <Header title="구매 기록" />
 
-      <Card>
-        <Text style={typography.heading}>영수증으로 간편하게 기록</Text>
-        <Text style={[typography.secondary, styles.uploadText]}>
-          품목과 수량이 보이는 영수증이나 주문내역을 올리면 재료별 단가로 정리해 드려요.
-        </Text>
-        <View style={styles.uploadActions}>
-          <Button label="영수증 촬영·업로드" onPress={() => router.push('/records/upload')} />
-          <Button label="직접 입력" variant="secondary" onPress={() => router.push('/purchases/new')} />
-        </View>
-      </Card>
+      <View style={styles.uploadActions}>
+        <Button label="영수증 촬영·업로드" onPress={() => router.push('/records/upload')} />
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => router.push('/purchases/new')}
+          hitSlop={space.s2}
+          style={({ pressed }) => [styles.textAction, pressed && styles.pressed]}
+        >
+          <Text style={styles.textActionLabel}>직접 입력</Text>
+        </Pressable>
+      </View>
 
       {invoices.isError ? (
         <Card>
@@ -94,9 +82,9 @@ export default function RecordsScreen() {
               <ListRow
                 key={invoice.id}
                 title={invoice.supplierName || invoice.extraction.supplier || '구매처 확인 필요'}
-                subtitle={`${invoice.date ? `${formatDateKo(invoice.date)}\n` : ''}${invoice.extraction.items.length}개 품목 · ${formatWon(
-                  invoice.extraction.total,
-                )}`}
+                subtitle={[invoice.date ? formatDateKo(invoice.date) : null, `${invoice.extraction.items.length}개 품목 · ${formatWon(invoice.extraction.total)}`]
+                  .filter(Boolean)
+                  .join(' · ')}
                 value={
                   <View style={styles.chips}>
                     <Chip label="확인 필요" tone="warning" />
@@ -113,7 +101,6 @@ export default function RecordsScreen() {
 
       <SectionHeader title="구매 내역" />
       <TextField label="검색" value={query} onChangeText={setQuery} placeholder="재료, 별칭, 구매처로 찾기" />
-      <SegmentedControl options={monthOptions} value={month} onChange={setMonth} />
 
       {purchases.isPending ? (
         <Card>
@@ -135,12 +122,9 @@ export default function RecordsScreen() {
             <StateView
               kind="empty"
               title="조건에 맞는 기록이 없어요"
-              message="검색어나 기간을 바꿔 보세요."
+              message="검색어를 바꿔 보세요."
               actionLabel="전체 기록 보기"
-              onAction={() => {
-                setQuery('');
-                setMonth('all');
-              }}
+              onAction={() => setQuery('')}
             />
           ) : (
             <StateView
@@ -181,9 +165,11 @@ export default function RecordsScreen() {
 }
 
 const styles = StyleSheet.create({
-  uploadText: { marginTop: space.s1 },
-  uploadActions: { marginTop: space.s4, gap: space.s2 },
-  listCard: { paddingVertical: space.s1 },
+  uploadActions: { gap: space.s1 },
+  textAction: { alignSelf: 'center', minHeight: control.iconButton, justifyContent: 'center' },
+  textActionLabel: { ...typography.secondary, color: colors.text, fontWeight: '600' },
+  pressed: { opacity: opacity.pressed },
+  listCard: { paddingVertical: 0 },
   chips: { flexDirection: 'row', gap: space.s1 },
   group: { gap: space.s2 },
 });
